@@ -5,6 +5,12 @@
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 </head>
 <body>
-	<p th:text="${userName}">is Welcomed!</p>
+	<form th:action="@{/login}" th:object="${user}" method="post" th:method="post">
+		ユーザー名:<input type="text" th:field="*{loginID}" />
+		<br>
+		パスワード: <input type="text" th:field="*{loginPwd}" />
+		<br>
+		<input type="submit" value="ログイン"/>
+	</form>
 </body>
 </html>
