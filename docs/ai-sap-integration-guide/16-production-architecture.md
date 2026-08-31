@@ -64,3 +64,4 @@ flowchart TB
 - 生产架构的核心不是画出漂亮的框图，而是清楚标出每个 Trust Boundary，并保证跨边界时都有独立的验证逻辑。
 - 涉及 SAP 连接的部分（Destination/Connectivity/Integration Suite）建议留在 BTP，其他组件（Frontend/Gateway/Approval）可以根据企业已有技术栈灵活选择云平台，不必强行都放在同一个云。
 - 数据驻留合规要求（尤其审计日志和 PII 存储位置）往往是"放哪个云"的决定性因素，不是纯技术判断。
+- 本章的架构图默认是同步 Request/Response 视角，SAP 主动推送事件的架构补充见 Part 22；同一套架构在 DEV/QAS/PRD 多环境下如何隔离部署，见 Part 25。

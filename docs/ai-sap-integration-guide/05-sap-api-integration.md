@@ -176,3 +176,5 @@ const client = createODataClient({
 - OData 写操作要处理 CSRF Token 获取流程，这是常见的新手坑。
 - S/4HANA Cloud 场景必须通过 Communication Arrangement 开通 API，不能像 On-Premise 那样直接访问底层服务。
 - 永远不要在代码里硬编码 SAP 连接信息，一律走 BTP Destination（配合 Connectivity Service）。
+- 如果标准 API 覆盖不了需求，正确的下一步是评估"能不能通过 RAP 开发一个新的 Released 服务"，而不是想办法绕过去直接读表，详见 Part 21。
+- 不同环境（DEV/QAS/PRD）的 `$metadata` 可能存在差异，部署前应该做自动化的契约检测，详见 Part 25.12。
