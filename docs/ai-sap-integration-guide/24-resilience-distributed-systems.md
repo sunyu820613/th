@@ -55,6 +55,36 @@ flowchart TB
 
 这条区分是本章最重要的一条原则，也是很多项目在真正上生产之前容易忽略的一点——"超时了就重试"是大多数通用 HTTP 客户端库的默认行为（很多 SDK 会自动对超时/5xx 做重试），**在写操作场景下这个默认行为是危险的，必须显式关闭自动重试，改为走 Part 13.2 的核实流程。**
 
+### 24.2.1 容易被混淆的另一层：纯 LLM inference retry ≠ 整个 Agent Turn retry
+
+上面的表格谈的是"某一次具体调用（LLM 推理 / 某个 Tool）该不该重试"，但实践中更容易踩的坑是**把这两者搞混，进而把"重试"的粒度错误地放大到整个 Agent Turn（Part 7.2 的一整轮 Agent Loop）**。这里必须再拆得更细一层：
+
+- **纯 LLM inference retry**：如果这一次失败/超时的调用，只是一次"模型推理"本身（**这一轮 Agent Turn 到目前为止还没有执行过任何 Tool**），那么重新发起这次推理是安全的，因为还没有产生任何外部副作用。
+- **Whole Agent Turn retry**：如果失败发生在**这一轮 Agent Turn 已经执行过 Tool 之后**（尤其是已经调用了 WRITE Tool、或者已经把确认记录推进到了某个状态），那么"从头重跑整个 Agent Turn"就完全是另一回事——**不能简单假设"重新走一遍对话流程"就是无副作用的**，因为前一次 Turn 可能已经产生了真实的 Tool side effect。
+
+**必须记住这句话：重新调用纯 LLM inference 通常无副作用，但重新执行整个 Agent Turn 未必安全，因为前一次 Turn 可能已经产生 Tool side effects。**
+
+```mermaid
+flowchart TD
+    START[Agent Turn 开始] --> LLM1[LLM 推理]
+    LLM1 --> TA[Tool A：READ<br/>调用成功]
+    TA --> LLM2[LLM 推理，决定调用 WRITE]
+    LLM2 --> TB[Tool B：WRITE 请求已发出]
+    TB --> FAIL[LLM 服务异常 / 网络中断<br/>本轮 Agent Turn 未能正常收尾]
+
+    FAIL -.❌ 禁止的做法.-> RESTART["直接重启整个 Agent Turn<br/>（相当于把 Tool A、Tool B 都当作没发生过）"]
+    FAIL -->|✅ 正确做法| INSPECT[核查后端执行状态<br/>不是重新发起对话，而是查证据]
+    INSPECT --> STATE{Tool B 的确认记录 / 幂等状态是什么?}
+    STATE -->|COMPLETED| REPORT1[如实告知用户已创建成功，给出凭证号]
+    STATE -->|FAILED| REPORT2[如实告知用户失败原因，可引导重新发起]
+    STATE -->|UNKNOWN| VERIFY2[走 Part 13.2 的核实流程<br/>确认后再决定回复内容]
+```
+
+关键区分点：
+- **READ Tool（如 Tool A）**：即使整轮 Agent Turn 中断了，Tool A 本身的调用可以视情况安全重放（只读操作重放没有额外风险）。
+- **WRITE Tool（如 Tool B）绝不能因为"这一轮 Agent Turn 失败了"就被当作"没发生过"而重新触发**——无论是重新调用一次 `create_sales_order`，还是简单粗暴地"重启整个对话轮次让模型重新决策一遍"，本质上都是在用不确定的方式重放一个可能已经产生真实副作用的写操作。正确做法永远是：**查后端的确定性状态**（Part 11.6 的 `confirmationId` 状态、Part 13.2 的幂等状态机是 `COMPLETED`/`FAILED`/`UNKNOWN` 中的哪一个），而不是依赖"重新走一遍对话/推理流程"这种不确定的手段去猜测结果。
+- 这也是 Agent Loop 实现层面的一条工程要求：**Agent Turn 的失败恢复逻辑，不能简单等同于"从头重新调用 `runAgentTurn()`"**，而应该先检查这一轮 Turn 内已经发生的 Tool Call 记录（尤其是否包含 WRITE），有 WRITE 记录时必须先走状态核实，才能决定接下来是该告知用户结果、还是可以安全地引导用户重新发起一轮全新的请求（注意：即使是"重新发起一轮全新请求"，也应该使用新的幂等 key/新的确认流程，而不是复用上一轮可能已经污染的状态）。
+
 ## 24.3 错误分类与重试决策表
 
 | HTTP / 错误情况 | 是否重试 | 说明 |
@@ -99,11 +129,12 @@ function isRetryable(err: any): boolean {
 
 ## 24.5 LLM 层面的重试
 
-LLM API 调用失败（限流、超时、模型服务暂时不可用）时的重试相对简单，因为没有副作用问题，但仍然要注意：
+本节讨论的是 24.2.1 定义的**纯 LLM inference retry**（这一次失败前，本轮 Agent Turn 还没有执行过 Tool）——这种重试相对简单，因为没有副作用问题，但仍然要注意：
 
 - 用同样的 Exponential Backoff + Jitter 策略，避免在 LLM 服务出现问题时所有请求同时重试造成雪崩。
 - 重试次数要有上限，超过上限应该给用户一个明确的"系统暂时繁忙，请稍后再试"提示，而不是无限等待。
-- 如果 Agent Loop 内部已经产生了部分 Tool Call 并拿到了结果（比如已经调用过 `search_customer`），LLM 推理失败重试时应该保留这些已有的上下文/结果，不要重新从头触发一遍已经成功的只读查询（避免不必要的重复调用）。
+- 如果 Agent Loop 内部已经产生了部分 Tool Call 并拿到了结果（比如已经调用过 `search_customer`），LLM 推理失败重试时应该保留这些已有的上下文/结果，不要重新从头触发一遍已经成功的只读查询（避免不必要的重复调用）——**但这种情况下重试的仍然只是"下一步推理"这个动作本身，不是把整轮 Turn 推倒重来**。
+- 一旦本轮 Turn 已经执行过 WRITE Tool，就不再属于本节讨论的范围，必须切换到 24.2.1 描述的"核查后端状态"路径，绝不能简单地"重新调用一次 Agent Turn"了事。
 
 ## 24.6 Retry Storm / Cascading Failure（重试风暴/级联故障）
 
@@ -180,6 +211,7 @@ Part 15.2 已经讲过 Correlation ID 的作用（贯穿全链路、便于排障
 ## 24.12 项目中你需要记住什么
 
 - 牢记这条核心区分："LLM retry 安全，READ Tool retry 通常安全，WRITE Tool / SAP POST 超时禁止直接重试"——这是本章最容易被忽视、也最容易酿成事故的一条规则，很多 HTTP 客户端库的默认自动重试行为在 WRITE 场景下是危险的，必须显式关闭。
+- 更进一步：**纯 LLM inference retry（本轮 Turn 还没执行过 Tool）通常安全，但重新执行整个 Agent Turn 未必安全，因为前一次 Turn 可能已经产生了 Tool side effect（尤其是 WRITE）**——失败恢复逻辑不能简单等同于"从头重新调用一次 Agent Turn"，必须先核查后端的确定性状态（confirmationId 状态、幂等状态机），见 24.2.1。
 - 建立错误分类与重试决策表（24.3）并在代码里严格执行，不要凭直觉判断"这个错误应该可以重试"。
 - Retry Storm/级联故障是"重试策略设计不当"导致的次生灾害，Jitter + Circuit Breaker + Bulkhead + Rate Limit 要组合使用，不能只靠其中一种。
 - Circuit Breaker 的核心价值是保护已经故障的下游（SAP），不让大量客户端的持续重试把恢复窗口也一起打没。
