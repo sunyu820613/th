@@ -66,3 +66,4 @@ flowchart LR
 - 三层（AI/Backend/SAP）各自记录该记录的内容，缺一不可，尤其 Tool Arguments 和 Tool Result 是排查"AI 到底做了什么"的第一手证据。
 - Correlation ID 从最早的入口生成，贯穿全链路，是审计和排障的生命线。
 - 日志要结构化、分级、脱敏，且绝不允许"吞异常不记录"。
+- Correlation ID 是 Distributed Tracing 的基础，把"多处日志用同一个 ID 串起来"进一步工程化为"结构化记录每一跳耗时和状态"，详见 Part 24.11。

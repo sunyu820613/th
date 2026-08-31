@@ -28,6 +28,11 @@
 | 18 | [18-glossary.md](./18-glossary.md) | 中英日术语表 |
 | 19 | [19-sap-mm-basics.md](./19-sap-mm-basics.md) | SAP MM（物料管理）基础：采购订单、库存管理、Procure-to-Pay |
 | 20 | [20-sap-pp-basics.md](./20-sap-pp-basics.md) | SAP PP（生产计划）基础：生产订单、BOM、MRP、SD/MM/PP 三角关系 |
+| 21 | [21-clean-core-rap-released-api.md](./21-clean-core-rap-released-api.md) | Clean Core、Released API/CDS/Business Object、ABAP Cloud、RAP、三种扩展路径的决策表 |
+| 22 | [22-event-driven-integration.md](./22-event-driven-integration.md) | 事件驱动集成：SAP Business Event、Event Mesh 定位、事件不可信问题、事件幂等/顺序/重放 |
+| 23 | [23-agent-testing-evaluation.md](./23-agent-testing-evaluation.md) | Agent 测试金字塔、Golden Dataset、核心评估指标（含 False Success Rate）、红队测试、CI/CD 门禁 |
+| 24 | [24-resilience-distributed-systems.md](./24-resilience-distributed-systems.md) | Timeout/Retry/Backoff/熔断/舱壁隔离、LLM/Tool/SAP 三层重试的安全性区分、Outbox/Saga |
+| 25 | [25-environments-transport-contract-testing.md](./25-environments-transport-contract-testing.md) | DEV/QAS/UAT/PRD、SAP Transport、API Contract Drift 检测、生产就绪检查清单 |
 
 ## 关于准确性的重要说明
 

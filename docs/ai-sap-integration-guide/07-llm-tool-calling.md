@@ -166,3 +166,4 @@ simulate_sales_order, stage_sales_order, create_sales_order 等。
 - Agent Loop 的本质是"模型决策 + 后端执行 + 结果反馈"的循环，模型从不直接触碰外部系统。
 - System Prompt 是重要但不充分的防线，关键规则必须在后端代码里也做强制校验（不能只写在 Prompt 里就假设模型一定遵守）。
 - Tool 描述（description）要写清楚"调用前置条件"（比如必须先查询、必须先确认），这能显著降低模型误调用的概率。
+- 光靠人工感觉判断"这个 Prompt/Tool 改动应该没问题"是不够的，任何 Prompt、Tool description、Schema 的变更都应该触发系统化的回归评估，详见 Part 23。
