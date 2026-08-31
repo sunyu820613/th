@@ -56,7 +56,7 @@ AI Backend 输入（业务语义层）：
   "material": "M100",
   "qty": 100,
   "unit": "EA",
-  "deliveryDate": "2026-09-04"
+  "deliveryDate": "2026-09-11"
 }
 ```
 
@@ -69,7 +69,7 @@ AI Backend 输入（业务语义层）：
   "DistributionChannel": "10",
   "OrganizationDivision": "00",
   "SoldToParty": "0010001234",
-  "RequestedDeliveryDate": "/Date(1757116800000)/",
+  "RequestedDeliveryDate": "/Date(1789084800000)/",
   "to_Item": [
     { "Material": "M100", "RequestedQuantity": "100", "RequestedQuantityUnit": "EA" }
   ]

@@ -1,8 +1,10 @@
 # Part 2：主案例完整拆解——"给客户 ABC 创建销售订单"
 
-用户输入：
+用户输入（假设对话发生在 **2026-09-01，周二**，全文日期计算均以此为基准）：
 
 > "帮我给客户 ABC 创建一个销售订单，物料 M-100，数量 100 个，下周五交货。"
+
+按此基准，"本周五"是 2026-09-04，"下周五"（下一周的周五）是 **2026-09-11**——这正是日期归一化容易出错的地方（"这周/下周"的边界定义），下文的确认卡片和 OData 示例都以 2026-09-11 为准。
 
 ## 第一步：自然语言理解（NLU / Intent Extraction）
 
@@ -100,6 +102,8 @@ LLM 的任务：识别 intent，抽取 slot/entity。这一步**只产出"候选
 **Backend 做**：编排调用顺序、快速失败、把 SAP 错误码翻译成结构化的错误类型。
 **SAP 做**：一切涉及实时业务规则计算的最终判断。
 
+**实践建议**：ATP/Credit Check/Pricing 这三行的"查询预览"，推荐统一通过一个独立的只读 Tool `simulate_sales_order` 实现——它调用 SAP 的 Sales Order 模拟类 API（不真正创建凭证），一次性拿回价格、ATP、信用检查的真实计算结果，供下一步生成确认卡片使用，而不是后端自己东拼西凑几个接口、甚至用近似值顶替。详见 Part 5.3.4。
+
 ## 第五步：用户确认（Confirmation）
 
 AI 生成确认卡片：
@@ -110,7 +114,7 @@ AI 生成确认卡片：
 物料：M-100 — 工业阀门 A 型
 数量：100 EA
 销售组织：1000 / 分销渠道：10 / 产品组：00
-预计交货日期：2026-09-04（周五）
+预计交货日期：2026-09-11（周五）
 预计金额：¥128,000.00（含税，最终以 SAP 定价为准）
 
 是否确认创建？[确认] [取消] [修改]
@@ -139,7 +143,7 @@ x-csrf-token: <token-from-GET>
   "OrganizationDivision": "00",
   "SoldToParty": "0010001234",
   "TransactionCurrency": "CNY",
-  "RequestedDeliveryDate": "/Date(1757116800000)/",
+  "RequestedDeliveryDate": "/Date(1789084800000)/",
   "to_Item": [
     {
       "Material": "M-100",
@@ -166,7 +170,7 @@ x-csrf-token: <token-from-GET>
 
 要点：
 - **Deep Insert**：一次请求同时创建 Header（`A_SalesOrder`）和 Item（`to_Item` navigation property），这是 OData 常见模式，避免多次往返和中间状态不一致。
-- **日期格式**：OData V2 的经典日期格式是 `/Date(epoch_ms)/`（⚠️ OData V4 用 ISO 8601 字符串如 `2026-09-04`，两者不同，务必看你用的版本）。
+- **日期格式**：OData V2 的经典日期格式是 `/Date(epoch_ms)/`（这里的 `1789084800000` 对应 2026-09-11 00:00:00 UTC；⚠️ OData V4 用 ISO 8601 字符串如 `2026-09-11`，两者不同，务必看你用的版本）。
 - **CSRF Token**：OData 写操作（POST/PUT/DELETE）必须先发一次 `GET` 请求带 `X-CSRF-Token: Fetch` 头获取 token，再带着这个 token 做写操作（防跨站请求伪造），这是 SAP OData 的标准要求。
 
 ## 第七步：返回结果
