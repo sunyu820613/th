@@ -26,12 +26,22 @@ Part 5 讲了"怎么调用 SAP API"，但没回答一个更根本的问题：**�
 |---|---|
 | Standard（标准对象） | SAP 交付的内核代码、标准表、标准逻辑，本身不对外提供稳定性承诺，SAP 可能在任意版本升级中调整其内部实现 |
 | Released API | SAP 明确把某个 API 的 **API State** 标记为 "Released"（区别于未发布/Deprecated），可以在 SAP API Business Accelerator Hub 上查到，本教程 Part 5 讲的 `API_SALES_ORDER_SRV` 就属于这一类 |
-| Released CDS View | 被标记为 Released 的 Core Data Services 视图，只有 Released 的 CDS View 才被允许作为自定义开发（如 RAP）的基础 |
+| Released CDS View | 被标记为 Released 的 Core Data Services 视图，是 ABAP Cloud 自定义开发（如 RAP）优先应该消费的对象类型——但"Released"本身不是唯一的判断条件，见下方澄清 |
 | Released Business Object | 在 RAP（21.8）语境下，一个业务对象（如 Sales Order）如果被标记为 Released，意味着它的 Behavior Definition、关联的 Service 具备明确的兼容性承诺，可以放心基于它做扩展或消费 |
 
 **"Released" 只是第一层判断（这个对象是否可以被消费/扩展），第二层更重要的判断是：它具体挂的是哪一种 Release Contract（21.4）**——这决定了"允许在这个对象上做什么"以及"未来会有怎样的兼容性保证"，不是所有 Released 对象都能同样使用。
 
 **如何在实际系统里核实一个对象是否 Released、挂的是哪种 Contract**：应该在 **ABAP Development Tools (ADT)** 里查看该对象的 **API State** 和 **Release Contract** 标注，或在 SAP API Business Accelerator Hub 上查看对应服务的发布状态，⚠️ 具体查询路径和 UI 随 ABAP 平台版本演进，请以你系统当前的官方文档和 ADT 实际显示为准。**不要用某个 CDS Annotation（如某些用于建模目的的 `@ObjectModel.*` 系列注解）来判断一个对象是否 Released**——这类注解通常服务于其他建模用途（比如描述业务对象的语义角色），并不等同于官方的 API State/Release Contract 标注，两者不能混为一谈。
+
+**重要澄清：不要把"Released"理解成一个可以在任何场景下随便用的万能通行证。** 在 ABAP Cloud / restricted ABAP language version 下消费 SAP 提供的对象时，"Released"只是判断能否使用的**起点**，还需要同时确认：
+
+- **API State**：对象是否真的处于 Released（而不是仍在孵化、或已 Deprecated）。
+- **Release Contract**（21.4）：具体挂的是 C0-C4 中的哪一种，决定了这个对象**适合被谁、以什么方式消费**。
+- **Visibility（可见性）**：该对象在当前场景下是否对你的开发上下文可见/可用。
+- **当前 ABAP Language Version**：ABAP Cloud 的受限语言版本下能消费的对象范围，本身就比经典 ABAP 语言版本更窄。
+- **Software Component / 具体使用场景**：同一个对象在不同的消费场景（系统内部开发 vs. 远程集成）下，"合适"的判断标准并不相同。
+
+具体来说：**系统内部的 ABAP Cloud 开发，通常应该重点关注适合内部消费的 Released 对象（对应 C1 契约）；而本教程关注的远程 Side-by-Side Integration（AI Backend 从 BTP 调用 SAP），应该重点关注适合 Remote API 消费的 C2 契约对象。"Released"本身不是唯一判断条件，还必须进一步确认它的 Release Contract 和 Visibility 是否允许你当前的消费场景**——一个只挂了 C1 契约的 Released CDS View，即使技术上"已发布"，也不代表它适合被 AI Backend 这种远程调用方直接消费。
 
 ## 21.4 Release Contract：不是单一的稳定性等级
 
@@ -43,10 +53,14 @@ Part 5 讲了"怎么调用 SAP API"，但没回答一个更根本的问题：**�
 | **C1 — Use System-Internally**（系统内部使用） | 面向 **ABAP Cloud 内部消费**——即同一系统内的自定义 ABAP Cloud 开发可以依赖它 | 保证一个"技术上稳定"的接口：已有的参数/字段/到其他 Released 对象的关联及其数据类型不会被移除或改变；未来版本可能新增可选的参数/字段/关联 |
 | **C2 — Use as Remote API**（远程 API 使用） | 面向 **Remote API / Side-by-Side Extension** 这类系统外部消费场景——本教程"AI Backend 在 BTP 上调用 SAP API"正对应这一类 | 承诺比 C1 更严格：同样允许新增可选元素，但**已有元素/参数不允许被修改，且不允许做"元素/参数的延伸变更"**，目的是保证外部消费方在系统升级后完全不需要调整 |
 | **C3 — Manage Configuration Content**（配置内容管理，⚠️ 需按官方文档核实覆盖场景） | 面向需要被导出/导入/编辑的自定义配置类持久化对象（如 Customizing 类数据表） | 承诺持久化结构（尤其 Key 字段）的稳定性：已有字段（尤其 Key）一旦发布不允许再变更，允许后续新增非 Key 字段 |
+| **C4 — Use in ABAP-Managed Database Procedures**（用于 AMDP） | 面向被 **AMDP（ABAP-Managed Database Procedures，用 SQLScript 编写、运行在 HANA 数据库内的存储过程）方法**消费的对象，如 AMDP 相关的 BAdI 方法 | 保证一个稳定的接口供其他 AMDP 方法调用；与 C1 类似但更严格——**一旦发布不允许再新增可选组件，也不允许做任何变更** |
+
+**C4 与本教程"AI + SAP 远程集成"的关系较弱**：它服务的是 SAP 系统内部、数据库层面的 AMDP 开发场景（比如需要在 HANA 内做高性能的数据库端计算），不是 AI Backend/Side-by-Side Extension 这类远程调用方需要关心的契约类型，这里不展开 AMDP/HANA SQLScript 本身的开发细节（不在本教程范围内），只需要知道有这一类契约存在、大致用于什么场景即可。
 
 **对 AI + SAP 项目的重点提示**：
 - **C1（系统内部使用）主要服务于 ABAP Cloud 内部消费场景**——比如你在 SAP 系统内部用 Developer Extensibility（21.11）开发的自定义逻辑，去消费另一个 C1 对象，这属于"系统内部"场景。
 - **C2（远程 API）才是本教程"AI Backend 作为 Side-by-Side Extension 调用 SAP"这类场景应该关注的目标契约**——只有明确挂了 C2 契约的 API，才被官方认为适合给外部/远程系统消费。如果一个对象只挂了 C1，理论上不代表它对外部系统调用同样安全可靠，应该谨慎评估或寻找是否有对应的 C2 版本服务。
+- **C0/C3/C4 通常不是 AI Backend 需要直接判断的契约类型**（分别对应扩展点、配置持久化、AMDP 内部调用），本教程提及它们是为了让你在 ADT 里看到这些标注时知道大致是什么意思，实际开发中 Side-by-Side Integration 场景应该始终以 C2 作为筛选标准。
 
 **不要把 Released 对象的兼容性描述成"字段永远不会删除、类型永远不会变"这种笼统的绝对承诺**——准确的说法是：**不同 Release Contract 对 compatibility / lifecycle stability 的承诺范围和严格程度不同，必须按对象实际挂载的具体 Contract，判断哪些变化届时会被官方认定为 breaking change、哪些属于契约允许的兼容性演进（如新增可选字段）。** 这个区分直接影响 Part 25.12 的 Contract Test 应该如何设计——如果依赖的是 C2 对象，"新增可选字段"通常不应该被判定为 breaking change 而阻断部署；但如果发现已有字段被修改/移除，无论挂的是 C1 还是 C2，都应该被判定为契约破坏。
 
