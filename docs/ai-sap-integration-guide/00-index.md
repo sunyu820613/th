@@ -26,6 +26,8 @@
 | 16 | [16-production-architecture.md](./16-production-architecture.md) | 生产参考架构、Trust Boundary、云归属 |
 | 17 | [17-learning-path.md](./17-learning-path.md) | Level 1/2/3 学习路线与推荐顺序 |
 | 18 | [18-glossary.md](./18-glossary.md) | 中英日术语表 |
+| 19 | [19-sap-mm-basics.md](./19-sap-mm-basics.md) | SAP MM（物料管理）基础：采购订单、库存管理、Procure-to-Pay |
+| 20 | [20-sap-pp-basics.md](./20-sap-pp-basics.md) | SAP PP（生产计划）基础：生产订单、BOM、MRP、SD/MM/PP 三角关系 |
 
 ## 关于准确性的重要说明
 
