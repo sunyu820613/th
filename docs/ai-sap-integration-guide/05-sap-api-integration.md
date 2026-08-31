@@ -97,7 +97,8 @@ flowchart LR
     F --> G[create_sales_order<br/>WRITE：真正创建]
 ```
 
-- `simulate_sales_order` 是纯 READ 操作，可以放心地让 Agent 在生成确认卡片前调用，不需要走 WRITE 的审批/幂等机制。
+- `simulate_sales_order` 在 Agent 层被归为 READ 工具，可以放心地让 Agent 在生成确认卡片前调用，不需要走 WRITE 的审批/幂等机制。**但要注意：这里的 READ/WRITE 是 Tool 风险分类（有没有副作用），不等同于底层 HTTP 方法**——模拟类 API 在协议层通常仍然是 `POST`（因为要提交完整的订单结构才能算出价格/ATP/信用结果），只是它不会持久化任何业务数据，所以在 Agent 层依然按"无副作用"归为 READ。新人第一次看到"POST 却叫 READ"容易疑惑，记住这个区分标准即可。
+- 具体触发哪些模拟计算，通常通过请求里挂载的 navigation property（如围绕定价、计划行、信用检查的关联结构，⚠️ 具体名称以你系统的 `$metadata` 为准）来控制——不挂载对应的关联，SAP 可能不会返回那部分模拟结果，这也是"字段级细节必须查 metadata"这条原则的又一个体现。
 - 确认卡片里的"预计金额""预计交期"不再是后端猜测或占位符，而是 SAP 模拟计算的真实结果——这比只说"最终以 SAP 定价为准"更贴近生产项目的实际做法。
 - `create_sales_order` 真正提交时，仍然可能因为并发导致的库存/信用变化而与模拟结果略有出入，这属于正常的最终一致性问题，UI 文案上仍应保留"最终以创建结果为准"的提示。
 
@@ -118,7 +119,7 @@ flowchart LR
 |---|---|---|
 | API 暴露方式 | 可直接开放 OData 服务（需网关配置 SICF），也可经 API Management | 必须通过 **Communication Arrangement** 显式开通，不能直接访问底层服务 |
 | 可用 API 范围 | 相对开放，可以用自定义扩展的 OData 服务 | 仅限于 SAP 发布的"Released API"白名单（保证云端升级兼容性），自定义扩展需走 SAP 的扩展性框架（如 Key User Extensibility / Developer Extensibility） |
-| 身份认证 | 内网 Basic Auth（不推荐）、OAuth2、SAML | 强制走 OAuth2/Communication User，配合 Communication System/Arrangement 配置 |
+| 身份认证 | 内网 Basic Auth（不推荐）、OAuth2、SAML | 必须通过 Communication Arrangement 暴露 API，但**认证方式不是只有 OAuth2**——具体支持哪种由所选的 **Communication Scenario** 决定，常见的有 Communication User + Basic Auth、Communication User + X.509 证书、OAuth 2.0（含 mTLS 变体）、部分场景支持 Principal Propagation，⚠️需按具体 Communication Scenario 的官方说明核实；生产环境建议优先选证书或 OAuth 2.0 这类更强的认证方式，避免用 Basic Auth |
 | 网络访问 | 通常经内网或 VPN/Cloud Connector | 通过公网 + Destination（可配合 Principal Propagation） |
 
 ## 5.6 Communication Arrangement（S/4HANA Cloud 场景）
