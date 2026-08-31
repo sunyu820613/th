@@ -119,7 +119,7 @@ flowchart LR
 | Schema Drift（结构漂移） | 环境间 `$metadata` 存在任何不一致，是本节所有子类型的统称 |
 | Optional → Required | 某个环境里字段从可选变成必填（或反过来），Adapter 层如果没有传这个字段，在字段变必填的环境会直接报错 |
 | Type Change（类型变化） | 字段的数据类型发生变化（如从字符串变成数值），可能导致序列化/反序列化错误 |
-| Removed Entity（实体被移除） | 某个 Entity Set 在新版本中被移除或改名（通常发生在使用了未 Released 对象的情况下，见 Part 21.4 的 Stability Contract） |
+| Removed Entity（实体被移除） | 某个 Entity Set 在新版本中被移除或改名（通常发生在使用了未 Released 对象、或所依赖对象的 Release Contract 本身不覆盖这种保护范围的情况下，见 Part 21.4） |
 | Renamed Navigation Property | Navigation Property 改名，导致 Deep Insert（Part 5.3.2）的关联结构失效 |
 
 ### 部署前的 Contract 检查流程
@@ -244,6 +244,6 @@ async function runContractTest(destinationName: string, envName: string) {
 
 - 环境隔离不是"部署脚本里改几个变量"这么简单，凡是 25.4 列出的配置项，都必须在设计阶段就明确"按环境隔离"，绝不能硬编码或跨环境复用，尤其是业务规则类配置（Sales Org 默认值、Approval Threshold）不能写进 Prompt。
 - SAP 侧的 Transport 流程和应用侧的 CI/CD 流程是两条并行但互相依赖的流水线，涉及 SAP 侧新增能力（如 Part 21 的自定义 RAP 服务）的功能，部署顺序要考虑两边环境就绪的先后关系。
-- API Contract Drift 是"依赖 Released API"（Part 21.4）之外的第二道防线：即使用的是 Released 对象，不同环境/不同时间点的实际 `$metadata` 仍然可能存在差异，必须在每次部署前用自动化 Contract Test 检测，而不是假设"开发时测过一次就永远有效"。
+- API Contract Drift 是"依赖 Released API 及其 Release Contract"（Part 21.4）之外的第二道防线：即使用的是 Released 对象，不同环境/不同时间点的实际 `$metadata` 仍然可能存在差异（哪怕只是 Contract 允许范围内的新增可选字段），必须在每次部署前用自动化 Contract Test 检测并按 Contract 类型判断是否为破坏性变更，而不是假设"开发时测过一次就永远有效"。
 - Prompt/Tool Schema 应该像代码一样版本化管理，并在回滚时保证与代码版本一致，这是很多项目容易忽视的一个环节。
 - Production Readiness Checklist 是全书安全、可靠性、测试要求的汇总门禁，新功能上线前应该逐条过一遍，而不是凭经验判断"应该没问题"。

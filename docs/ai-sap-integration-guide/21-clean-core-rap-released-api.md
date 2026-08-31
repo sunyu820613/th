@@ -25,21 +25,32 @@ Part 5 讲了"怎么调用 SAP API"，但没回答一个更根本的问题：**�
 | 概念 | 说明 |
 |---|---|
 | Standard（标准对象） | SAP 交付的内核代码、标准表、标准逻辑，本身不对外提供稳定性承诺，SAP 可能在任意版本升级中调整其内部实现 |
-| Released API | SAP 明确"发布"并承诺**向后兼容**的 API（可以在 SAP API Business Accelerator Hub 上查到，通常带有明确的 Release 状态标注），本教程 Part 5 讲的 `API_SALES_ORDER_SRV` 就属于这一类 |
-| Released CDS View | 被 SAP 标记为可供客户扩展/消费的 Core Data Services 视图（技术上 CDS View 上会有 `@ObjectModel.usageType` 之类的注解表明其发布状态；⚠️ 具体注解语法和查询方式需按当前 ABAP 平台版本核实），只有 Released 的 CDS View 才被允许作为自定义开发的基础 |
-| Released Business Object | 在 RAP（21.8）语境下，一个业务对象（如 Sales Order）如果被 SAP 标记为 Released，意味着它的 Behavior Definition、关联的 Service 都具备稳定性承诺，可以放心基于它做扩展或消费 |
+| Released API | SAP 明确把某个 API 的 **API State** 标记为 "Released"（区别于未发布/Deprecated），可以在 SAP API Business Accelerator Hub 上查到，本教程 Part 5 讲的 `API_SALES_ORDER_SRV` 就属于这一类 |
+| Released CDS View | 被标记为 Released 的 Core Data Services 视图，只有 Released 的 CDS View 才被允许作为自定义开发（如 RAP）的基础 |
+| Released Business Object | 在 RAP（21.8）语境下，一个业务对象（如 Sales Order）如果被标记为 Released，意味着它的 Behavior Definition、关联的 Service 具备明确的兼容性承诺，可以放心基于它做扩展或消费 |
 
-**判断一个 API/CDS View/Business Object 能不能在项目里依赖，第一步永远是查它是不是 Released**——这个信息在 SAP API Business Accelerator Hub 和目标系统的开发工具（ABAP Development Tools / Eclipse）里都能查到，⚠️ 具体查询路径和标注方式随版本演进，请以你系统当前的官方文档为准。
+**"Released" 只是第一层判断（这个对象是否可以被消费/扩展），第二层更重要的判断是：它具体挂的是哪一种 Release Contract（21.4）**——这决定了"允许在这个对象上做什么"以及"未来会有怎样的兼容性保证"，不是所有 Released 对象都能同样使用。
 
-## 21.4 Stability Contract 的意义
+**如何在实际系统里核实一个对象是否 Released、挂的是哪种 Contract**：应该在 **ABAP Development Tools (ADT)** 里查看该对象的 **API State** 和 **Release Contract** 标注，或在 SAP API Business Accelerator Hub 上查看对应服务的发布状态，⚠️ 具体查询路径和 UI 随 ABAP 平台版本演进，请以你系统当前的官方文档和 ADT 实际显示为准。**不要用某个 CDS Annotation（如某些用于建模目的的 `@ObjectModel.*` 系列注解）来判断一个对象是否 Released**——这类注解通常服务于其他建模用途（比如描述业务对象的语义角色），并不等同于官方的 API State/Release Contract 标注，两者不能混为一谈。
 
-**Stability Contract（稳定性承诺）** 是 Released API/对象背后的核心价值：SAP 承诺在未来版本升级中，一个 Released 对象的**接口签名不会发生破坏性变更**（字段不会被删除、类型不会被改变、行为语义保持一致；新增字段/新增可选能力是允许的）。
+## 21.4 Release Contract：不是单一的稳定性等级
 
-这意味着：
-- 你基于 Released API 构建的 AI Tool，**在 SAP 系统升级后大概率不需要跟着改代码**（除非你想用新版本新增的能力）。
-- 如果你绕过 Clean Core 直接读写底表或调用未 Released 的内部结构，SAP 完全不对其稳定性负责——下一次系统升级、甚至一次补丁包，都可能悄无声息地改变表结构或内部逻辑，导致你的 AI Backend 在毫无预警的情况下崩溃或产生错误结果，而且这类故障通常很难排查（因为"没有人告诉你这个接口变了"）。
+**这是本章最容易被简化误解的地方，需要重点澄清：Released 不代表"从此这个对象的一切都被冻结、永远不变"，而是对应一个具体的 Release Contract，不同 Contract 对兼容性和生命周期稳定性的承诺是不同的。** SAP 的 ABAP Cloud / Release Contract 体系里，至少包含以下几种（⚠️ 以下定义基于 SAP 官方 ABAP Keyword Documentation 的公开说明整理，具体条款、是否还有更多 Contract 类型、以及各版本平台上的实际适用范围，请以你所在系统当前的官方文档为准，不要照搬本表当作某个具体系统的最终结论）：
 
-这正是 Part 25（环境与契约测试）里"API Contract Drift"问题的根源之一：**依赖 Released 对象是防止契约漂移的第一道防线**，Part 25 讲的 contract test 是第二道防线（万一 Released 对象本身也发生了预期外的变化）。
+| Release Contract | 定位 | 兼容性承诺要点 |
+|---|---|---|
+| **C0 — Extend** | 在 API 中预留的、明确允许被扩展的"扩展点"（Extension Point） | 保证扩展点本身的稳定性，可能进一步限定只能用于 Key User Apps 扩展、还是也允许 Cloud Development 扩展 |
+| **C1 — Use System-Internally**（系统内部使用） | 面向 **ABAP Cloud 内部消费**——即同一系统内的自定义 ABAP Cloud 开发可以依赖它 | 保证一个"技术上稳定"的接口：已有的参数/字段/到其他 Released 对象的关联及其数据类型不会被移除或改变；未来版本可能新增可选的参数/字段/关联 |
+| **C2 — Use as Remote API**（远程 API 使用） | 面向 **Remote API / Side-by-Side Extension** 这类系统外部消费场景——本教程"AI Backend 在 BTP 上调用 SAP API"正对应这一类 | 承诺比 C1 更严格：同样允许新增可选元素，但**已有元素/参数不允许被修改，且不允许做"元素/参数的延伸变更"**，目的是保证外部消费方在系统升级后完全不需要调整 |
+| **C3 — Manage Configuration Content**（配置内容管理，⚠️ 需按官方文档核实覆盖场景） | 面向需要被导出/导入/编辑的自定义配置类持久化对象（如 Customizing 类数据表） | 承诺持久化结构（尤其 Key 字段）的稳定性：已有字段（尤其 Key）一旦发布不允许再变更，允许后续新增非 Key 字段 |
+
+**对 AI + SAP 项目的重点提示**：
+- **C1（系统内部使用）主要服务于 ABAP Cloud 内部消费场景**——比如你在 SAP 系统内部用 Developer Extensibility（21.11）开发的自定义逻辑，去消费另一个 C1 对象，这属于"系统内部"场景。
+- **C2（远程 API）才是本教程"AI Backend 作为 Side-by-Side Extension 调用 SAP"这类场景应该关注的目标契约**——只有明确挂了 C2 契约的 API，才被官方认为适合给外部/远程系统消费。如果一个对象只挂了 C1，理论上不代表它对外部系统调用同样安全可靠，应该谨慎评估或寻找是否有对应的 C2 版本服务。
+
+**不要把 Released 对象的兼容性描述成"字段永远不会删除、类型永远不会变"这种笼统的绝对承诺**——准确的说法是：**不同 Release Contract 对 compatibility / lifecycle stability 的承诺范围和严格程度不同，必须按对象实际挂载的具体 Contract，判断哪些变化届时会被官方认定为 breaking change、哪些属于契约允许的兼容性演进（如新增可选字段）。** 这个区分直接影响 Part 25.12 的 Contract Test 应该如何设计——如果依赖的是 C2 对象，"新增可选字段"通常不应该被判定为 breaking change 而阻断部署；但如果发现已有字段被修改/移除，无论挂的是 C1 还是 C2，都应该被判定为契约破坏。
+
+这正是 Part 25（环境与契约测试）里"API Contract Drift"问题的根源之一：**依赖 Released 对象、并理解它挂载的具体 Release Contract，是防止契约漂移的第一道防线**，Part 25 讲的 contract test 是第二道防线（万一 Released 对象本身也发生了契约允许范围之外的意外变化）。
 
 ## 21.5 为什么 Public Cloud / ABAP Cloud 环境不能随意直接访问底表
 
@@ -57,7 +68,7 @@ Private Cloud/On-Premise 场景技术上仍然可能做到直接读表（尤其�
 `VBAK`（销售凭证抬头表）、`VBAP`（销售凭证行项目表）是 ECC 时代非常经典的"顾问和 ABAP 开发者张口就来"的表名。在现代项目里，即使技术上还能连上（比如某些 On-Premise 系统仍然允许），也应该谨慎使用，原因：
 
 1. **S/4HANA 的很多经典表在底层已经变成了 Compatibility View**（为了向后兼容旧程序而保留的视图，⚠️ 具体哪些表是原生表、哪些是兼容视图，随 S/4HANA 版本而异，需要核实），性能和语义可能与 ECC 时代不完全一致。
-2. **表结构不是 Stability Contract 的一部分**——SAP 完全有权在未来版本中调整这些表的内部结构，你的 AI Backend 如果依赖这些表，随时可能在下一次系统升级后悄无声息地出错。
+2. **底表结构不受任何 Release Contract 约束**——它既没有被标记为 Released，也就谈不上挂载 C0/C1/C2 中的任何一种兼容性承诺，SAP 完全有权在未来版本中调整这些表的内部结构，你的 AI Backend 如果依赖这些表，随时可能在下一次系统升级后悄无声息地出错。
 3. **读表拿到的是"原始数据"，不是"业务语义"**——比如订单的信用冻结状态、定价结果，往往分散在多张关联表中，需要复现 SAP 内核的一整套计算逻辑才能得出正确结论；而 Released API/CDS View 已经把这些逻辑封装好了，直接给你计算好的业务结果。**这与 Part 1.6"Credit Check/ATP/Pricing 必须由 SAP 权威计算，后端不能重新实现"是同一条原则的另一种体现**——直接读表本质上就是"绕过 SAP 计算逻辑，自己拼凑结果"的一种形式，风险类似。
 
 ## 21.7 什么是 ABAP Cloud
@@ -85,7 +96,9 @@ flowchart TD
 | Service Definition | 从一个（或多个关联的）Behavior Definition 中，挑选出哪些 Entity/字段/操作要对外暴露，相当于"服务契约的草稿" |
 | Service Binding | 把 Service Definition 绑定为具体的对外协议（最常见是 OData V2/V4，也可以绑定为 Web API 等其他形式），生成真正可以被 HTTP 调用的服务端点 |
 
-**理解这条链路的意义**：当你在 SAP API Business Accelerator Hub 上看到一个 OData 服务时，它的背后大概率就是这样一条 RAP 生成链——理解这一点，能帮你判断"这个字段能不能改""这个操作能不能扩展"这类问题该去 SAP 里的哪个环节找答案，而不是病急乱投医去改底表。
+**需要澄清的一点：不能反过来说"看到 OData 就说明底层一定是 RAP"。** RAP 是**现代 ABAP Cloud / Developer Extensibility 场景下新建业务服务的主流和官方推荐路径**，但 SAP 生态里同样存在大量历史上通过其他方式实现的标准 OData API——比如更早期基于经典 SAP Gateway 框架、或基于 SADL（Service Adaptation Description Language）等实现方式暴露的服务，这些服务同样可以是 Released、同样可以在 API Business Accelerator Hub 上查到。换句话说，**"这是一个 OData 服务"这件事本身不能反推出它的底层实现一定是 RAP 生成链**，具体某个服务是怎么实现的，属于 SAP 内部的实现细节，你不需要也通常无法从外部调用方视角确认。
+
+**理解本节这条链路的意义**：如果你的项目需要**新建**一个自定义服务（走 Developer Extensibility），RAP 是当前应该采用的官方路径，理解 CDS → Behavior Definition → Service Definition → Service Binding 这条链，能帮你判断"这个字段能不能改""这个操作能不能扩展"这类问题该去 SAP 里的哪个环节找答案，而不是病急乱投医去改底表；但**这条链路描述的是"你自己新建服务时应该怎么做"，不是"所有你在 Business Accelerator Hub 上看到的现有 OData 服务背后都是这么实现的"这一断言**。
 
 ## 21.10 RAP Business Object 如何最终暴露成 OData API
 
@@ -180,7 +193,7 @@ flowchart TB
 ## 21.16 项目中你需要记住什么
 
 - Clean Core 限制的是"怎么改"，不是"能不能改"——遇到标准 API 不够用的情况，第一反应应该是"走哪条正式扩展路径"，而不是"想办法绕过去"。
-- 判断一个 API/CDS View/Business Object 能不能长期依赖，标准是看它是否 Released（有 Stability Contract），这直接决定了你的 AI Backend 在 SAP 升级后是否会莫名其妙地崩溃。
+- 判断一个 API/CDS View/Business Object 能不能长期依赖，标准是看它是否 Released、以及它具体挂的是哪种 Release Contract（C0/C1/C2/C3，21.4）——尤其要认清 C1（系统内部）和 C2（远程 API）的区别，这直接决定了你的 AI Backend 在 SAP 升级后是否会莫名其妙地崩溃，以及哪些字段变化算是契约允许的兼容性演进、哪些算是破坏性变更。
 - 直接读 `VBAK`/`VBAP` 这类底表在现代项目（尤其 Public Cloud/ABAP Cloud）里通常被平台直接禁止，即使技术上可行（On-Premise），也不建议这样做——原因和"Credit Check/ATP/Pricing 不能后端重算"是同一条原则的延伸。
 - AI Agent Backend/Business Service 层应该定位为 Side-by-Side Extension，部署在 BTP 或其他云上，而不是塞进 S/4HANA 系统内部。
 - 无论最终能力来自标准 Released API 还是自定义 RAP 服务，Tool 层对 LLM 暴露的接口都应该保持业务语义化、不泄漏底层实现细节——这是 Tool Abstraction Layer 原则在 Clean Core 语境下的又一次印证。

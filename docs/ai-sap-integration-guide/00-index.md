@@ -36,7 +36,7 @@
 
 ## 关于准确性的重要说明
 
-- 本教程中涉及 SAP 具体 API 名称（如 `API_SALES_ORDER_SRV`）、Fiori App ID、BTP 服务名等，均为**公开可查、长期稳定**的标准内容，但**字段级细节（必填/可选、取值范围、版本差异）必须以你所连接的具体 SAP 系统的 API metadata（`$metadata`）和 SAP API Business Accelerator Hub 文档为准**，教程中标注「⚠️ 需按版本核实」的地方尤其如此。
+- 本教程列出的 SAP API / 产品名称（如 `API_SALES_ORDER_SRV`）、Fiori App ID、BTP 服务名等，均为**公开可查、基于当前公开标准能力**的内容，但**这不等于"永久不变"**：实际项目中仍必须核实目标系统版本、该对象的 **API State / Release Contract**（是否 Released、挂载的是 C0/C1/C2/C3 中的哪一种，见 Part 21.4）、**Communication Scenario**（S/4HANA Cloud 场景）、实际的 API metadata（`$metadata`），以及该对象是否已被标记 Deprecated——教程中标注「⚠️ 需按版本核实」的地方尤其如此。
 - Joule / Joule Studio / Generative AI Hub / SAP AI Core 相关内容变化较快（2024-2026 SAP 持续发版），教程给出的是**架构性认知**（这个组件大致负责哪一层），不代表当前最新 UI 或计费方式，标注「⚠️ 需核实当前版本」。
 - 明确区分 **ECC / S/4HANA On-Premise / Private Cloud / Public Cloud** 四种情形，不混用。
 - 已知 deprecated 的技术会明确标注（例如经典 SOAP-based Sales Order API 在新项目中已不推荐，优先 OData V2/V4）。
