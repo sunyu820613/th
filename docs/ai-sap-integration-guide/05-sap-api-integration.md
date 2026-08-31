@@ -42,7 +42,7 @@
 |---|---|
 | Entity | 一条数据记录的类型定义，类似"表" |
 | Entity Set | Entity 的集合，对应 URL 里的资源路径，如 `A_SalesOrder` |
-| Metadata | `$metadata` 端点返回的 XML/EDMX，描述所有 Entity、字段、类型、关系——**这是你判断"这个字段到底叫什么、必填不必填"的唯一权威来源**，不要凭记忆或教程猜 |
+| Metadata | `$metadata` 端点返回的 XML/EDMX，描述所有 Entity、字段、数据类型、Navigation、Nullable、MaxLength 等**数据模型结构**——这是判断"这个字段到底叫什么、结构上是否必填"的权威来源，不要凭记忆或教程猜。但要注意：EDMX 里的 `Nullable="false"` 只反映结构层面的必填，很多 SAP 业务上的"条件必填"规则（如某个订单类型下字段 X 才必填、某销售范围下字段 Y 由 Customizing 决定）并不会完整体现在 `$metadata` 里，这类业务语义和条件规则还需要结合 SAP Business Accelerator Hub / Help Portal 的说明以及目标系统的实际 Customizing 一起核实 |
 | GET | 查询 |
 | POST | 创建 |
 | PATCH（V2 常用 MERGE） | 部分更新 |
@@ -80,6 +80,26 @@ https://<host>/sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrder
 ```
 
 后端要做的是**解析 `innererror.errordetails`，把 SAP 消息码映射成结构化的业务错误类型**（如 `CUSTOMER_BLOCKED`），而不是把原始 SAP 消息直接甩给用户（消息文案可能是德语/内部术语，不友好）。
+
+### 5.3.4 用于"预览而不落库"的 Sales Order Simulation API
+
+Part 1.6 和 Part 2 第四步反复强调：Pricing、ATP、Credit Check 必须由 SAP 权威计算，后端不能重新实现。但这不代表用户确认前只能"盲猜"这些结果——SAP 提供了专门用于**模拟（Simulate）** Sales Order 的服务（⚠️ 具体技术名和字段以你系统当前版本的 API Business Accelerator Hub 页面为准，例如围绕 `API_SALES_ORDER_SIMULATION_SRV` 一类的模拟服务），它接受和创建订单几乎一样的输入，但**不会真正保存凭证**，返回的是模拟计算出的定价、ATP 可用性、信用检查结果等信息。
+
+这让 Part 2 第四步的"业务校验"可以更具体地落地为一个独立的 READ 工具：
+
+```mermaid
+flowchart LR
+    A[用户表达意图] --> B[主数据解析<br/>customer/material]
+    B --> C[simulate_sales_order<br/>READ：调用模拟 API]
+    C --> D[SAP 返回：价格/ATP/信用检查/建议交期]
+    D --> E[生成确认卡片<br/>展示真实的预计金额和交期]
+    E --> F[用户确认]
+    F --> G[create_sales_order<br/>WRITE：真正创建]
+```
+
+- `simulate_sales_order` 是纯 READ 操作，可以放心地让 Agent 在生成确认卡片前调用，不需要走 WRITE 的审批/幂等机制。
+- 确认卡片里的"预计金额""预计交期"不再是后端猜测或占位符，而是 SAP 模拟计算的真实结果——这比只说"最终以 SAP 定价为准"更贴近生产项目的实际做法。
+- `create_sales_order` 真正提交时，仍然可能因为并发导致的库存/信用变化而与模拟结果略有出入，这属于正常的最终一致性问题，UI 文案上仍应保留"最终以创建结果为准"的提示。
 
 ## 5.4 SAP API Business Accelerator Hub
 

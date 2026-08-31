@@ -43,19 +43,31 @@ sequenceDiagram
     MT-->>AB: {materialId:"M-100", unit:"EA", salesBlocked:false}
     AB->>LLM: 喂回结果
 
-    LLM-->>AB: 自然语言：完整订单摘要，请求用户确认
-    AB-->>UI: 展示确认卡片
+    LLM-->>AB: Tool Call: simulate_sales_order(customerId, materialId, qty=100, date)
+    AB->>SI: 调用 Sales Order 模拟接口（只读，见 Part 5.3.4）
+    SI->>S4: 模拟计算（不落库）
+    S4-->>SI: 价格/ATP/信用检查预览
+    SI-->>AB: 结构化预览结果
+    AB->>LLM: 喂回结果
+
+    LLM-->>AB: Tool Call: stage_sales_order(customerId, materialId, qty=100, date)
+    AB->>AB: Backend 生成确认记录（confirmationId + 后端持有的 idempotencyKey，状态=PENDING）
+    AB-->>LLM: {confirmationId:"conf_abc", status:"PENDING"}
+    LLM-->>AB: 自然语言：完整订单摘要（含真实预计金额），请求用户确认
+    AB-->>UI: 展示确认卡片（携带 confirmationId）
     UI-->>U: 客户/物料/数量/日期/预计金额
     U->>UI: 点击"确认"
-    UI->>AB: 确认事件
+    UI->>AB: POST /confirmations/conf_abc/confirm（独立 REST 接口，不经过 LLM）
+    AB->>AB: 校验发起人=当前用户 → 记录状态改为 CONFIRMED
+    AB-->>UI: 确认成功
 
-    AB->>LLM: 用户已确认
-    LLM-->>AB: Tool Call: create_sales_order(customerId, materialId, qty=100, date, idempotencyKey)
-
+    AB->>LLM: 提示"该记录已确认"
+    LLM-->>AB: Tool Call: create_sales_order(confirmationId="conf_abc")
+    AB->>AB: 校验确认记录：存在/属于当前用户/状态=CONFIRMED/未过期/未执行过
     AB->>AP: 是否需要审批？（金额/规则判断）
     AP-->>AB: 未超阈值，无需人工审批，直接放行
 
-    AB->>SI: POST 创建销售订单（写操作）
+    AB->>SI: POST 创建销售订单（写操作，携带后端持有的 idempotencyKey）
     SI->>S4: CSRF Token 获取 → OData Deep Insert POST
     S4-->>SI: 201 Created, SalesOrder=4710012345
     SI-->>AB: 结构化结果
