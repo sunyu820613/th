@@ -1,10 +1,14 @@
-# Part 11：完整 Demo——本地可跑的 AI + Mock SAP 销售订单项目
+# Part 11：完整 Demo——本地可跑的 AI + Mock SAP 销售订单项目（Part 11：完全なデモ——ローカルで動作する AI + Mock SAP 受注プロジェクト）
 
 目标：不依赖真实 SAP 系统，先用 Mock SAP API 跑通"自然语言 → Tool Calling → 后端确认 → 创建订单 → 返回订单号"的完整链路，再逐步替换成真实 SAP Sandbox（把 `SapClient` 的实现从 Mock 换成真实 OData 调用，Business Service 和 Tool 层代码不需要改动）。
 
+目標：実際の SAP システムに依存せず、まず Mock SAP API で「自然言語 → Tool Calling → バックエンド確認 → 受注作成 → 受注番号返却」という一連のフローを通し、その後段階的に実際の SAP Sandbox に置き換えます（`SapClient` の実装を Mock から実際の OData 呼び出しに変更するだけで、Business Service と Tool 層のコードは変更不要です）。
+
 **本版 Demo 的架构要点（对照 Part 7.3 和 Part 14）**：写操作被拆成 `stage_sales_order`（准备确认，不写 SAP）→ 用户在 UI 上点击确认（走独立的后端 REST 接口，不经过 LLM）→ `create_sales_order(confirmationId)`（真正写 SAP，只接受一个由后端生成的确认 ID）。**用户"是否已确认"由后端的确认记录状态决定，幂等键也由后端在确认阶段生成并持有，LLM 全程不会接触到原始的幂等键，也无法在最后一步偷偷更改任何业务参数。**
 
-## 11.1 项目目录结构
+**本バージョンのデモのアーキテクチャ上のポイント（Part 7.3 および Part 14 を参照）**：書き込み操作は `stage_sales_order`（確認準備、SAP には書き込まない）→ ユーザーが UI 上で確認ボタンをクリック（LLM を経由しない独立したバックエンド REST インターフェース）→ `create_sales_order(confirmationId)`（実際に SAP へ書き込み、バックエンドが生成した確認 ID のみを受け付ける）という流れに分割されています。**ユーザーが「確認済みかどうか」はバックエンドの確認レコードの状態によって決定され、冪等キーもバックエンドが確認段階で生成・保持します。LLM は一貫して元の冪等キーに触れることがなく、最後のステップでビジネスパラメータをこっそり変更することもできません。**
+
+## 11.1 项目目录结构（プロジェクトディレクトリ構成）
 
 ```
 ai-sap-demo/
@@ -33,7 +37,7 @@ ai-sap-demo/
     └── salesOrderService.test.ts
 ```
 
-## 11.2 package.json 依赖
+## 11.2 package.json 依赖（package.json の依存関係）
 
 ```json
 {
@@ -61,6 +65,8 @@ ai-sap-demo/
 ```
 
 > 说明：LLM SDK 用 `openai` 库仅作示例（Function Calling API 结构在主流厂商间高度相似），实际项目替换成你选定的模型供应商 SDK 即可，Agent Loop 的结构不变。
+>
+> 説明：LLM SDK は `openai` ライブラリをあくまで一例として使用しています（Function Calling API の構造は主要ベンダー間で非常に似ています）。実際のプロジェクトでは選定したモデルプロバイダーの SDK に置き換えるだけでよく、Agent Loop の構造自体は変わりません。
 
 ## 11.3 Tool Schema（`src/agent/toolSchemas.ts`）
 
@@ -148,6 +154,8 @@ export const toolSchemas = [
 ```
 
 要点：`create_sales_order` 的参数表里**只有** `confirmationId`，没有任何业务字段，也没有 `idempotencyKey`——这是 Part 7.3 强调的关键设计：真正的业务参数和幂等键都锁定在后端的确认记录里，模型无法在最后一步凭空更改或重放一个不属于本次对话的确认。
+
+ポイント：`create_sales_order` のパラメータ表には**`confirmationId` しかなく**、業務フィールドも `idempotencyKey` もありません——これが Part 7.3 で強調した重要な設計です。実際の業務パラメータと冪等キーはすべてバックエンドの確認レコードに固定されており、モデルは最後のステップで根拠なく変更したり、本セッションに属さない確認を再生したりすることはできません。
 
 ## 11.4 System Prompt（`src/agent/systemPrompt.ts`）
 
