@@ -1,0 +1,121 @@
+<title>Java Web 中日双语教程</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#f6f3ee; --paper:#fffdf9; --ink:#2a2420; --ink-soft:#5c534b;
+    --line:#e3dbcd; --accent:#b5541f; --accent-ink:#7a3a15; --accent-soft:#f1ded0;
+    --code-bg:#241f1a; --code-ink:#f2e9dc; --chip-bg:#eee5d6;
+    --review-accent:#4f7a5c; --review-soft:#e3ecdf;
+    --project-accent:#2f5f8a; --project-soft:#dfe9f1;
+    --ja-soft:#eef1f6; --ja-accent:#5c6f8f; --ja-ink:#3d4a63;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1c1815; --paper:#232019; --ink:#efe7db; --ink-soft:#b6ab9c;
+      --line:#3a332b; --accent:#e08a4d; --accent-ink:#f4b184; --accent-soft:#3a2a1e;
+      --code-bg:#15120e; --code-ink:#f2e9dc; --chip-bg:#332c22;
+      --review-accent:#8fbf9c; --review-soft:#26301f;
+      --project-accent:#82b3dd; --project-soft:#1c2a36;
+      --ja-soft:#212836; --ja-accent:#8fa3c7; --ja-ink:#c3cee2;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1c1815; --paper:#232019; --ink:#efe7db; --ink-soft:#b6ab9c;
+    --line:#3a332b; --accent:#e08a4d; --accent-ink:#f4b184; --accent-soft:#3a2a1e;
+    --code-bg:#15120e; --code-ink:#f2e9dc; --chip-bg:#332c22;
+    --review-accent:#8fbf9c; --review-soft:#26301f;
+    --project-accent:#82b3dd; --project-soft:#1c2a36;
+    --ja-soft:#212836; --ja-accent:#8fa3c7; --ja-ink:#c3cee2;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans","PingFang SC","Microsoft YaHei","Noto Sans JP",sans-serif;line-height:1.75;}
+  h1,h2,h3,h4{font-family:"IBM Plex Serif","Songti SC",serif;color:var(--ink);text-wrap:balance;line-height:1.3;}
+  code, pre, .mono{font-family:"IBM Plex Mono","Consolas",monospace;}
+  a{color:var(--accent-ink);}
+  .shell{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:250px minmax(0,1fr);gap:44px;padding:36px 24px 120px;}
+  @media (max-width:880px){.shell{grid-template-columns:1fr;}}
+  .toc{position:sticky;top:20px;align-self:start;font-size:0.82rem;max-height:calc(100vh - 40px);overflow-y:auto;padding-right:6px;}
+  .toc .kicker{text-transform:uppercase;letter-spacing:0.08em;font-size:0.7rem;color:var(--accent-ink);font-weight:600;margin-bottom:10px;position:sticky;top:0;background:var(--bg);padding-bottom:6px;}
+  .toc .toc-stage{margin:16px 0 4px;font-weight:600;font-size:0.72rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.05em;}
+  .toc ol{list-style:none;margin:0 0 4px;padding:0;border-left:2px solid var(--line);}
+  .toc a{display:block;padding:5px 0 5px 14px;color:var(--ink-soft);text-decoration:none;border-left:2px solid transparent;margin-left:-2px;font-size:0.82rem;}
+  .toc a:hover{color:var(--ink);}
+  .toc .num{display:inline-block;min-width:2.2em;color:var(--accent-ink);font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:0.76rem;}
+  @media (max-width:880px){.toc{position:static;margin-bottom:8px;max-height:none;} .toc ol{display:none;}}
+  header.hero{padding:30px 34px;background:var(--paper);border:1px solid var(--line);border-radius:14px;margin-bottom:8px;}
+  header.hero .eyebrow{text-transform:uppercase;letter-spacing:0.1em;font-size:0.72rem;font-weight:600;color:var(--accent-ink);}
+  header.hero h1{font-size:2.15rem;margin:8px 0 10px;}
+  header.hero p{color:var(--ink-soft);max-width:64ch;margin:0 0 14px;}
+  .badge-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .badge{font-size:0.76rem;background:var(--chip-bg);color:var(--ink-soft);padding:4px 10px;border-radius:999px;font-family:"IBM Plex Mono",monospace;}
+  main{min-width:0;}
+  .stage-divider{margin:44px 0 6px;padding:10px 0;border-top:2px solid var(--accent);}
+  .stage-divider span{font-family:"IBM Plex Serif",serif;font-size:1.05rem;font-weight:600;color:var(--accent-ink);}
+  section.chapter{padding:34px 0;border-bottom:1px solid var(--line);scroll-margin-top:20px;}
+  section.chapter:last-child{border-bottom:none;}
+  .chapter-head{display:flex;align-items:baseline;gap:14px;margin-bottom:14px;}
+  .chapter-head .idx{font-family:"IBM Plex Mono",monospace;font-size:1.3rem;color:var(--accent);font-weight:600;min-width:2.4em;}
+  .chapter-head h2{font-size:1.5rem;margin:0;}
+  .kind-review .chapter-head .idx{color:var(--review-accent);}
+  .kind-review .chapter-head h2{color:var(--review-accent);}
+  .kind-project .chapter-head .idx{color:var(--project-accent);}
+  .kind-project .chapter-head h2{color:var(--project-accent);}
+  .kind-review{background:var(--review-soft);border-radius:12px;padding:28px 26px;border-bottom:none;margin:20px 0;}
+  .kind-project{background:var(--project-soft);border-radius:12px;padding:28px 26px;border-bottom:none;margin:20px 0;}
+  .chapter-body h2{font-size:1.12rem;margin:26px 0 10px;color:var(--accent-ink);border-top:1px solid var(--line);padding-top:20px;}
+  .chapter-body > h2:first-child{border-top:none;padding-top:0;}
+  .kind-review .chapter-body h2, .kind-project .chapter-body h2{border-top-color:rgba(0,0,0,0.08);}
+  .chapter-body h3{font-size:1.02rem;margin:18px 0 8px;color:var(--ink);}
+  .chapter-body p{margin:9px 0;}
+  .chapter-body ul, .chapter-body ol{padding-left:1.3em;}
+  .chapter-body li{margin:4px 0;}
+  .chapter-body pre{background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:10px;overflow-x:auto;font-size:0.84rem;line-height:1.6;margin:12px 0 18px;border:1px solid var(--line);}
+  .chapter-body pre code{font-family:inherit;background:none;padding:0;}
+  .chapter-body code{font-family:"IBM Plex Mono",monospace;background:var(--chip-bg);padding:1px 5px;border-radius:4px;font-size:0.88em;white-space:pre-wrap;}
+  .chapter-body pre code{background:none;padding:0;}
+  .chapter-body table{width:100%;border-collapse:collapse;margin:14px 0;font-size:0.9rem;display:block;overflow-x:auto;}
+  .chapter-body th,.chapter-body td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);white-space:normal;}
+  .chapter-body th{color:var(--ink-soft);font-weight:600;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.03em;}
+  .chapter-body details{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:10px 16px;margin:14px 0;}
+  .kind-review .chapter-body details, .kind-project .chapter-body details{background:rgba(255,255,255,0.35);}
+  .chapter-body details summary{cursor:pointer;font-weight:600;color:var(--accent-ink);}
+  .chapter-body blockquote{margin:2px 0 14px;padding:8px 14px;background:var(--ja-soft);border-left:3px solid var(--ja-accent);border-radius:0 8px 8px 0;font-family:"Noto Sans JP","IBM Plex Sans",sans-serif;color:var(--ja-ink);font-size:0.95em;line-height:1.85;}
+  .chapter-body blockquote p{margin:0;}
+  .chapter-body td blockquote, .chapter-body th blockquote{margin:4px 0 0;}
+  .kind-review .chapter-body blockquote, .kind-project .chapter-body blockquote{background:rgba(255,255,255,0.4);}
+  .chapter-body td br + text, .chapter-body td{line-height:1.6;}
+  .ja-inline{color:var(--ja-ink);font-family:"Noto Sans JP","IBM Plex Sans",sans-serif;}
+  .chapter-body hr{border:none;border-top:1px solid var(--line);margin:20px 0;}
+  footer.end{margin-top:30px;padding:24px 0 60px;color:var(--ink-soft);font-size:0.88rem;text-align:center;}
+</style>
+
+<div class="shell">
+  <nav class="toc">
+    <div class="kicker">课程目录 ／ 目次 · 共 38 章</div>
+    __TOC__
+  </nav>
+
+  <main>
+    <header class="hero">
+      <div class="eyebrow">Java Web 后端实战课 · 中日双语对照版 ／ 日中対訳版</div>
+      <h1>Java Web 入门到实战教程 ／ Java Web 入門から実践までのチュートリアル</h1>
+      <p>本课程按 Java 必要基础 → HTTP → Servlet → MVC → Spring IoC/DI → Spring Boot → Spring MVC → REST API → MySQL → MyBatis/MyBatis-Plus → DTO/校验/异常处理 → 事务/日志/Debug → 完整 CRUD 项目 → 打包部署/Git 的顺序展开，全程用同一条调用链贯穿：Browser → HTTP → Tomcat → DispatcherServlet → Controller → Service → Mapper → MySQL。四个阶段项目从 Hello Spring Boot 一路升级到带分页的 Task 管理系统完整 CRUD。正文采用中日逐段对照，日语译文以 <span style="color:var(--ja-accent)">🇯🇵</span> 标记；重要技术名词首次出现时附中日双语简注。</p>
+      <p style="color:var(--ja-ink);font-family:'Noto Sans JP','IBM Plex Sans',sans-serif;">このチュートリアルでは、Javaの基礎からHTTP、Servlet、MVC、Spring IoC/DI、Spring Boot、Spring MVC、REST API、MySQL、MyBatis/MyBatis-Plus、DTO・バリデーション・例外処理、トランザクション・ログ・デバッグ、一通りのCRUD機能を備えたプロジェクト、パッケージング・デプロイ・Gitの順に展開し、常に同じ呼び出しの流れ（Browser → HTTP → Tomcat → DispatcherServlet → Controller → Service → Mapper → MySQL）を軸にしています。4つの段階的プロジェクトはHello Spring Bootから、ページネーション付きのタスク管理システムのCRUD機能一式へと段階的にレベルアップします。本文は中国語と日本語を段落ごとに対訳し、日本語訳には 🇯🇵 の印を付けています。重要な専門用語は初出時に日中両言語で簡単な注釈を付けています。</p>
+      <div class="badge-row">
+        <span class="badge">Java 21 LTS</span>
+        <span class="badge">Spring Boot 4.1.1</span>
+        <span class="badge">Spring MVC</span>
+        <span class="badge">MySQL 8.x</span>
+        <span class="badge">MyBatis / MyBatis-Plus</span>
+        <span class="badge">JUnit 5</span>
+      </div>
+    </header>
+
+    __SECTIONS__
+
+    <footer class="end">
+      <p>从 <code>System.out.println("Hello, Java!")</code> 到一个带分页、校验、全局异常处理、事务和自动化测试的完整 Task 管理系统 API——你已经走完了这条完整的调用链。继续在 task-manager 项目上加功能，是巩固这些知识最好的方式。</p>
+      <p style="color:var(--ja-ink);font-family:'Noto Sans JP','IBM Plex Sans',sans-serif;">🇯🇵 <code>System.out.println("Hello, Java!")</code> から、ページネーション・バリデーション・グローバル例外処理・トランザクション・自動テストを備えた完全なTask管理システムAPIまで——あなたはこの一連の呼び出しの流れを完走しました。task-managerプロジェクトに機能を追加し続けることが、これらの知識を定着させる一番の方法です。</p>
+    </footer>
+  </main>
+</div>

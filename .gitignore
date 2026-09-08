@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### java-web-course generated intermediates ###
+java-web-course/scripts/chapters.json
+java-web-course/scripts/chapters_bilingual.json
+java-web-course/scripts/toc.html
+java-web-course/scripts/toc_bilingual.html
+java-web-course/scripts/sections.html
+java-web-course/scripts/sections_bilingual.html

@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: user-crud-mysql
+  datasource:
+    url: jdbc:mysql://localhost:3306/usercrud_db?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8
+    username: appuser
+    password: apppass123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+server:
+  port: 8081
