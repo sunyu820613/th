@@ -50,9 +50,9 @@ Jackson 会把 `User` 对象的**所有字段**都序列化成 JSON，包括 `pa
 
 | 类名 ／ クラス名 | 用途 ／ 用途 |
 |---|---|
-| `TaskEntity`（本教程简写为 `Task`） | 和数据库 `task` 表一一对应，字段是数据库有什么这里就有什么，交给 MyBatis-Plus 做数据库映射用<br><span class="ja-inline">🇯🇵 `TaskEntity`（本チュートリアルでは `Task` と省略表記） </span>| データベースの `task` テーブルと1対1で対応し、フィールドはデータベースにあるものがそのまま存在します。MyBatis-Plus（MyBatis を拡張したライブラリ）のデータベースマッピングに使われます |
+| `TaskEntity`（本教程简写为 `Task`） | 和数据库 `task` 表一一对应，字段是数据库有什么这里就有什么，交给 MyBatis-Plus 做数据库映射用<br><span class="ja-inline">🇯🇵 データベースの `task` テーブルと1対1で対応し、フィールドはデータベースにあるものがそのまま存在します。MyBatis-Plus（MyBatis を拡張したライブラリ）のデータベースマッピングに使われます</span> |
 | `TaskDTO` | 业务逻辑层内部流转用的对象（可选，很多小项目会省略这一层，直接用 Entity 在 Service 内部传递）<br><span class="ja-inline">🇯🇵 ビジネスロジック層の内部でやり取りされるオブジェクト（任意。小規模プロジェクトの多くはこの層を省略し、Entity を Service 内部でそのまま受け渡しします） </span>|
-| `TaskCreateRequest` | 前端"新建任务"时提交上来的数据，只包含新建需要的字段（比如 `title`、`description`）<br>🇵🇯 フロントエンドが「タスクを新規作成」する際に送信するデータで、新規作成に必要なフィールド（`title`、`description` など）のみを含みます |
+| `TaskCreateRequest` | 前端"新建任务"时提交上来的数据，只包含新建需要的字段（比如 `title`、`description`）<br><span class="ja-inline">🇯🇵 フロントエンドが「タスクを新規作成」する際に送信するデータで、新規作成に必要なフィールド（`title`、`description` など）のみを含みます</span> |
 | `TaskUpdateRequest` | 前端"更新任务"时提交上来的数据，字段可能和创建时不完全一样（比如允许单独改 `status`）<br><span class="ja-inline">🇯🇵 フロントエンドが「タスクを更新」する際に送信するデータで、フィールドは作成時と完全に同じとは限りません（例えば `status` だけ個別に変更できる場合など） </span>|
 | `TaskResponse` | 返回给前端的数据，只包含前端需要展示、且可以公开的字段<br><span class="ja-inline">🇯🇵 フロントエンドに返すデータで、フロントエンドが表示する必要があり、かつ公開してよいフィールドのみを含みます </span>|
 | `TaskVO` | 有些项目里，`VO`（Value Object，值对象）代替 `Response` 承担同样的角色——"给前端/给视图层展示用的对象"<br><span class="ja-inline">🇯🇵 一部のプロジェクトでは、`VO`（Value Object、値オブジェクト）が `Response` の代わりに同じ役割——「フロントエンド／ビュー層に表示するためのオブジェクト」——を担います </span>|
