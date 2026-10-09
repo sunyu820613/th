@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mermaid 查看编辑器</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --line:#d9dce1; --text:#1f2329; --muted:#6b7280;
+  --accent:#2563eb; --accent-soft:rgba(37,99,235,.14); --code-bg:#fbfbfc; --err:#b91c1c; --err-bg:#fef2f2;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#16171a; --panel:#1f2125; --line:#33363c; --text:#e6e8eb; --muted:#9aa1ab;
+    --accent:#60a5fa; --accent-soft:rgba(96,165,250,.2); --code-bg:#1a1c20; --err:#fca5a5; --err-bg:#3a1d1d; }
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;display:flex;flex-direction:column}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.4;cursor:default;border-color:var(--line)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+select,input[type=text],input[type=number]{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 6px;min-width:0}
+
+header{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:15px;margin:0 8px 0 0;font-weight:600}
+header .sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
+header .spacer{flex:1}
+#fname{color:var(--muted);font-size:12px}
+
+main{flex:1;min-height:0;display:grid;grid-template-columns:var(--ew,380px) 6px minmax(0,1fr) 270px}
+#editorPane{display:flex;flex-direction:column;min-width:0;background:var(--panel)}
+#editorPane .bar{padding:6px 10px;color:var(--muted);font-size:12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+#code{flex:1;resize:none;border:0;outline:0;padding:10px 12px;background:var(--code-bg);font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2;white-space:pre;overflow:auto}
+#err{display:none;margin:0;padding:8px 12px;background:var(--err-bg);color:var(--err);font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;max-height:30%;overflow:auto;border-top:1px solid var(--line)}
+#split{cursor:col-resize;background:var(--line)}
+#split:hover{background:var(--accent)}
+
+#canvas{position:relative;overflow:hidden;touch-action:none;cursor:grab;background-image:radial-gradient(rgba(128,128,128,.28) 1px,transparent 1px);background-size:20px 20px}
+#canvas.panning{cursor:grabbing}
+#stage{position:absolute;left:0;top:0;transform-origin:0 0}
+#stage svg{display:block;overflow:visible;max-width:none}
+#canvas .hint{position:absolute;left:10px;bottom:8px;color:var(--muted);font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 8px;pointer-events:none;opacity:.92}
+#zoombar{position:absolute;right:10px;bottom:8px;display:flex;gap:4px;align-items:center}
+#zoombar span{min-width:44px;text-align:center;color:var(--muted);font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 0}
+#stage g.node.drag{cursor:grab}
+#stage g.node.drag:hover{filter:drop-shadow(0 0 2px var(--accent))}
+#stage g.node.sel{filter:drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 1px var(--accent))}
+#stage .hit{stroke:transparent;stroke-width:14px;fill:none;pointer-events:stroke;cursor:pointer;marker-end:none;marker-start:none}
+#stage .hit.sel{stroke:var(--accent-soft)}
+
+#side{background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:10px 12px}
+#side h2{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px;font-weight:600}
+#side h2:first-child{margin-top:0}
+.row{display:flex;align-items:center;gap:6px;margin:5px 0}
+.row>label{width:64px;flex:none;color:var(--muted);font-size:13px}
+.row>.ctl{flex:1;min-width:0;display:flex;align-items:center;gap:6px}
+.row input[type=range]{flex:1;min-width:0}
+.row input[type=color]{width:34px;height:24px;padding:0;border:1px solid var(--line);border-radius:4px;background:none}
+.row select,.row input[type=text]{width:100%}
+.row .val{width:38px;text-align:right;color:var(--muted);font-size:12px;flex:none}
+.row .x{padding:0 6px;line-height:20px;color:var(--muted)}
+.selname{font-weight:600;margin-bottom:4px;word-break:break-all}
+.note{color:var(--muted);font-size:12px;margin:4px 0}
+
+@media (max-width:900px){
+  main{grid-template-columns:1fr;grid-template-rows:200px 6px minmax(0,1fr) auto}
+  #split{cursor:row-resize}
+  #side{border-left:0;border-top:1px solid var(--line);max-height:35vh}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Mermaid 查看编辑器</h1>
+  <button id="btnOpen">打开 .mmd</button>
+  <button id="btnSave" class="primary">保存 .mmd</button>
+  <span class="sep"></span>
+  <button id="btnSvg">导出 SVG</button>
+  <button id="btnPng">导出 PNG</button>
+  <span class="sep"></span>
+  <button id="btnUndo" title="撤销 (Ctrl+Z)">↶ 撤销</button>
+  <button id="btnRedo" title="重做 (Ctrl+Shift+Z)">↷ 重做</button>
+  <button id="btnReset" title="清除所有拖拽位置">重置布局</button>
+  <span class="spacer"></span>
+  <span id="fname">未命名.mmd</span>
+  <input id="fileInput" type="file" accept=".mmd,.mermaid,.md,.txt" hidden>
+</header>
+<main>
+  <section id="editorPane">
+    <div class="bar"><span>Mermaid 源码</span><span id="status">加载中…</span></div>
+    <textarea id="code" spellcheck="false"></textarea>
+    <pre id="err"></pre>
+  </section>
+  <div id="split" title="拖动调整宽度"></div>
+  <section id="canvas">
+    <div id="stage"></div>
+    <div class="hint" id="hint"></div>
+    <div id="zoombar">
+      <button id="zOut">－</button><span id="zVal">100%</span><button id="zIn">＋</button>
+      <button id="zFit">适应窗口</button><button id="z100">100%</button>
+    </div>
+  </section>
+  <aside id="side"></aside>
+</main>
+
+<script>
+/* ---------- 加载 mermaid（本地优先，其次多个 CDN） ---------- */
+const MERMAID_SRCS = [
+  './mermaid.min.js',
+  'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js',
+  'https://unpkg.com/mermaid@10.9.1/dist/mermaid.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js'
+];
+function loadMermaid(){
+  return new Promise((resolve, reject) => {
+    let i = 0;
+    const next = () => {
+      if (window.mermaid) return resolve();
+      if (i >= MERMAID_SRCS.length) return reject(new Error('无法加载 mermaid 库，请检查网络，或把 mermaid.min.js 放到本页同目录'));
+      const s = document.createElement('script');
+      s.src = MERMAID_SRCS[i++];
+      s.onload = () => window.mermaid ? resolve() : next();
+      s.onerror = () => { s.remove(); next(); };
+      document.head.appendChild(s);
+    };
+    next();
+  });
+}
+
+/* ---------- 状态 ---------- */
+const $ = s => document.querySelector(s);
+const SAMPLE = `flowchart LR
+  A[用户请求] --> B{鉴权}
+  B -->|通过| C[(数据库)]
+  B -->|拒绝| D((结束))
+  C --> E[生成响应]
+  E --> D
+  E -.-> F[写日志]
+`;
+const META_RE = /^%% mmd-editor:(.*)$/m;
+const FONTS = [
+  ['系统默认', ''],
+  ['无衬线', '"PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif'],
+  ['衬线', '"Songti SC",SimSun,Georgia,serif'],
+  ['等宽', 'ui-monospace,Menlo,Consolas,monospace'],
+  ['手写', '"Comic Sans MS","Kaiti SC",KaiTi,cursive']
+];
+const DASH = { solid: 'none', dash: '8 6', dot: '2 5' };
+
+function defaultMeta(){
+  return { v: 1, pos: {}, nodes: {}, edges: {},
+    g: { theme: 'default', fontFamily: '', fontSize: 16, nodeStroke: '', edgeWidth: '', edgeDash: '', edgeColor: '', curve: 'auto', bg: '' } };
+}
+let meta = defaultMeta();
+let fileName = '未命名.mmd';
+let svg = null, NODES = {}, EDGES = [], isFlow = false;
+let sel = null;                 // {type:'node'|'edge', id}
+const view = { x: 20, y: 20, k: 1 };
+
+const code = $('#code'), stage = $('#stage'), canvas = $('#canvas'), side = $('#side');
+
+/* ---------- 工具 ---------- */
+function mk(tag, props, ...kids){
+  const el = document.createElement(tag);
+  if (props) for (const [k, v] of Object.entries(props)) { if (k in el) el[k] = v; else el.setAttribute(k, v); }
+  for (const c of kids) if (c != null) el.append(c);
+  return el;
+}
+function setStyle(el, prop, val){
+  if (val === '' || val == null) el.style.removeProperty(prop);
+  else el.style.setProperty(prop, val, 'important');
+}
+function rgbToHex(c){
+  const m = /rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/.exec(c || '');
+  if (!m) return /^#[0-9a-f]{6}$/i.test(c || '') ? c : '#888888';
+  return '#' + [m[1], m[2], m[3]].map(n => (+n).toString(16).padStart(2, '0')).join('');
+}
+function persist(){
+  try { localStorage.setItem('mmd-editor-state', JSON.stringify({ code: code.value, meta, fileName })); } catch (e) {}
+}
+function isDark(){ return meta.g.theme === 'dark'; }
+function canvasBg(){ return meta.g.bg || (isDark() ? '#1f2023' : '#ffffff'); }
+function applyCanvasBg(){ canvas.style.backgroundColor = canvasBg(); }
+
+/* ---------- 历史（撤销/重做，仅针对样式与位置） ---------- */
+const hist = [], redo = []; let lastTag = '', lastT = 0;
+function checkpoint(tag){
+  const now = Date.now();
+  if (tag === lastTag && now - lastT < 800) { lastT = now; return; }
+  hist.push(JSON.stringify(meta)); if (hist.length > 100) hist.shift();
+  redo.length = 0; lastTag = tag; lastT = now; updateHistBtns();
+}
+function updateHistBtns(){ $('#btnUndo').disabled = !hist.length; $('#btnRedo').disabled = !redo.length; }
+function undo(){ if (!hist.length) return; redo.push(JSON.stringify(meta)); meta = JSON.parse(hist.pop()); lastTag = ''; afterMetaSwap(); }
+function redoIt(){ if (!redo.length) return; hist.push(JSON.stringify(meta)); meta = JSON.parse(redo.pop()); lastTag = ''; afterMetaSwap(); }
+function afterMetaSwap(){ updateHistBtns(); persist(); applyCanvasBg(); render(); }
+
+/* ---------- 渲染 ---------- */
+let rendering = false, pending = false, rid = 0, firstFit = true;
+async function render(){
+  if (rendering) { pending = true; return; }
+  rendering = true;
+  try {
+    do {
+      pending = false;
+      const g = meta.g;
+      mermaid.initialize({
+        startOnLoad: false, securityLevel: 'strict', theme: g.theme,
+        fontFamily: g.fontFamily || undefined,
+        themeVariables: { fontSize: (g.fontSize || 16) + 'px' },
+        flowchart: { htmlLabels: false, curve: 'basis' },
+        htmlLabels: false
+      });
+      const id = 'mmd' + (++rid);
+      try {
+        const out = await mermaid.render(id, code.value);
+        stage.innerHTML = out.svg;
+        $('#err').style.display = 'none';
+        $('#status').textContent = '已渲染';
+        build();
+        if (firstFit) { firstFit = false; fit(); }
+      } catch (e) {
+        $('#err').textContent = String(e && e.message || e);
+        $('#err').style.display = 'block';
+        $('#status').textContent = '语法错误';
+      }
+      document.querySelectorAll('#d' + id + ',#' + id).forEach(n => { if (!stage.contains(n)) n.remove(); });
+    } while (pending);
+  } finally { rendering = false; }
+}
+let renderTimer;
+function scheduleRender(){ clearTimeout(renderTimer); renderTimer = setTimeout(render, 300); }
+
+/* ---------- 解析 SVG：节点 / 连线 ---------- */
+function build(){
+  svg = stage.querySelector('svg');
+  NODES = {}; EDGES = []; isFlow = false;
+  if (!svg) return;
+  const vb = svg.viewBox.baseVal;
+  svg.removeAttribute('style');
+  svg.setAttribute('width', vb.width); svg.setAttribute('height', vb.height);
+
+  svg.querySelectorAll('g.node').forEach(g => {
+    const m = /^flowchart-(.+)-\d+$/.exec(g.id);
+    if (!m) return;
+    const t = g.transform.baseVal.consolidate();
+    const shape = g.querySelector('.label-container') || g.querySelector('rect,circle,ellipse,polygon,path');
+    if (!shape || !t) return;
+    const parts = [...g.querySelectorAll('rect,circle,ellipse,polygon,path')].filter(el => !el.closest('.label'));
+    let inv = null;
+    const st = shape.transform && shape.transform.baseVal.consolidate();
+    if (st) inv = DOMMatrix.fromMatrix(st.matrix).inverse();
+    NODES[m[1]] = { id: m[1], g, shape, parts, inv, bx: t.matrix.e, by: t.matrix.f, cx: t.matrix.e, cy: t.matrix.f };
+    g.classList.add('drag');
+  });
+
+  const paths = [...svg.querySelectorAll('g.edgePaths > path')];
+  const labels = [...svg.querySelectorAll('g.edgeLabels > g.edgeLabel')];
+  const seen = {};
+  paths.forEach((p, i) => {
+    const cls = [...p.classList];
+    const s = (cls.find(c => c.startsWith('LS-')) || '').slice(3);
+    const t = (cls.find(c => c.startsWith('LE-')) || '').slice(3);
+    const base = s + '>' + t;
+    const key = base + '#' + (seen[base] = (seen[base] ?? -1) + 1);
+    const hit = p.cloneNode(false);
+    hit.removeAttribute('id'); hit.removeAttribute('class'); hit.removeAttribute('style');
+    hit.removeAttribute('marker-end'); hit.removeAttribute('marker-start');
+    hit.setAttribute('class', 'hit'); hit.dataset.edge = i;
+    p.after(hit);
+    const lab = labels[i] || null;
+    EDGES.push({ i, key, src: s, tgt: t, path: p, hit, label: lab, d0: p.getAttribute('d'),
+      lt0: lab ? lab.getAttribute('transform') : null,
+      mEnd: p.getAttribute('marker-end'), mStart: p.getAttribute('marker-start') });
+  });
+
+  isFlow = Object.keys(NODES).length > 0;
+  $('#hint').textContent = isFlow
+    ? '拖动节点移动 · 点击选中节点/连线 · 拖动空白平移 · 滚轮缩放'
+    : '该图类型仅支持查看、缩放与全局字体/主题（节点拖拽仅支持 flowchart / graph）';
+  if (sel && !(sel.type === 'node' ? NODES[sel.id] : EDGES.find(e => e.key === sel.id))) sel = null;
+  moveAllNodes(); routeAll(); applyStyles(); markSel(); renderPanel();
+}
+
+/* ---------- 节点位置 / 连线路由 ---------- */
+function off(id){ return meta.pos[id] || [0, 0]; }
+function moveNode(n){
+  const [dx, dy] = off(n.id);
+  n.cx = n.bx + dx; n.cy = n.by + dy;
+  n.g.setAttribute('transform', `translate(${n.cx},${n.cy})`);
+}
+function moveAllNodes(){ Object.values(NODES).forEach(moveNode); }
+
+function inside(n, px, py){
+  let p = new DOMPoint(px - n.cx, py - n.cy);
+  if (n.inv) p = n.inv.transformPoint(p);
+  try { return n.shape.isPointInFill(p); } catch (e) { return false; }
+}
+// 从节点中心沿 (tx,ty) 方向找到形状边界
+function boundary(n, tx, ty){
+  const dx = tx - n.cx, dy = ty - n.cy, L = Math.hypot(dx, dy) || 1;
+  const ux = dx / L, uy = dy / L;
+  let hi = Math.min(L, 3000), lo = 0;
+  if (inside(n, n.cx + ux * hi, n.cy + uy * hi)) return { x: n.cx + ux * hi, y: n.cy + uy * hi };
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (inside(n, n.cx + ux * mid, n.cy + uy * mid)) lo = mid; else hi = mid;
+  }
+  return { x: n.cx + ux * lo, y: n.cy + uy * lo };
+}
+const f2 = v => Math.round(v * 100) / 100;
+function routeEdge(e, mode){
+  const a = NODES[e.src], b = NODES[e.tgt];
+  if (!a || !b || a === b) return;
+  let d;
+  if (mode === 'straight') {
+    const s = boundary(a, b.cx, b.cy), t = boundary(b, a.cx, a.cy);
+    d = `M${f2(s.x)},${f2(s.y)}L${f2(t.x)},${f2(t.y)}`;
+  } else {
+    const horiz = Math.abs(b.cx - a.cx) >= Math.abs(b.cy - a.cy);
+    let s, t;
+    if (horiz) {
+      const sg = Math.sign(b.cx - a.cx) || 1;
+      s = boundary(a, a.cx + sg * 5000, a.cy); t = boundary(b, b.cx - sg * 5000, b.cy);
+      const mx = (s.x + t.x) / 2;
+      d = mode === 'ortho'
+        ? `M${f2(s.x)},${f2(s.y)}L${f2(mx)},${f2(s.y)}L${f2(mx)},${f2(t.y)}L${f2(t.x)},${f2(t.y)}`
+        : `M${f2(s.x)},${f2(s.y)}C${f2(mx)},${f2(s.y)} ${f2(mx)},${f2(t.y)} ${f2(t.x)},${f2(t.y)}`;
+    } else {
+      const sg = Math.sign(b.cy - a.cy) || 1;
+      s = boundary(a, a.cx, a.cy + sg * 5000); t = boundary(b, b.cx, b.cy - sg * 5000);
+      const my = (s.y + t.y) / 2;
+      d = mode === 'ortho'
+        ? `M${f2(s.x)},${f2(s.y)}L${f2(s.x)},${f2(my)}L${f2(t.x)},${f2(my)}L${f2(t.x)},${f2(t.y)}`
+        : `M${f2(s.x)},${f2(s.y)}C${f2(s.x)},${f2(my)} ${f2(t.x)},${f2(my)} ${f2(t.x)},${f2(t.y)}`;
+    }
+  }
+  e.path.setAttribute('d', d); e.hit.setAttribute('d', d);
+  if (e.label) {
+    const p = e.path.getPointAtLength(e.path.getTotalLength() / 2);
+    e.label.setAttribute('transform', `translate(${f2(p.x)},${f2(p.y)})`);
+  }
+}
+function routeOne(e){
+  const mode = meta.g.curve;
+  const a = off(e.src), b = off(e.tgt);
+  const moved = a[0] || a[1] || b[0] || b[1];
+  if (e.src === e.tgt || !NODES[e.src] || !NODES[e.tgt] || (mode === 'auto' && !moved)) {
+    e.path.setAttribute('d', e.d0); e.hit.setAttribute('d', e.d0);
+    if (e.label && e.lt0 != null) e.label.setAttribute('transform', e.lt0);
+    return;
+  }
+  routeEdge(e, mode === 'auto' ? 'curve' : mode);
+}
+function routeAll(){ EDGES.forEach(routeOne); }
+
+/* ---------- 样式应用 ---------- */
+function edgeMarker(e, color){
+  for (const [attr, orig] of [['marker-end', e.mEnd], ['marker-start', e.mStart]]) {
+    if (!orig) continue;
+    if (!color) { e.path.setAttribute(attr, orig); continue; }
+    const m = /url\(["']?#([^"')]+)["']?\)/.exec(orig);
+    if (!m) continue;
+    const src = svg.querySelector('#' + CSS.escape(m[1]));
+    if (!src) continue;
+    const nid = m[1] + '-c' + color.slice(1);
+    if (!svg.querySelector('#' + CSS.escape(nid))) {
+      const c = src.cloneNode(true); c.id = nid;
+      c.querySelectorAll('*').forEach(x => { setStyle(x, 'fill', color); setStyle(x, 'stroke', color); });
+      src.parentNode.appendChild(c);
+    }
+    e.path.setAttribute(attr, `url(#${nid})`);
+  }
+}
+function applyStyles(){
+  if (!svg) return;
+  const G = meta.g;
+  Object.values(NODES).forEach(n => {
+    const st = meta.nodes[n.id] || {};
+    n.parts.forEach(p => {
+      setStyle(p, 'fill', st.fill); setStyle(p, 'stroke', st.stroke);
+      const sw = st.sw !== undefined && st.sw !== '' ? st.sw : G.nodeStroke;
+      setStyle(p, 'stroke-width', sw === '' || sw == null ? '' : sw + 'px');
+    });
+    n.g.querySelectorAll('text,tspan').forEach(t => {
+      setStyle(t, 'fill', st.color);
+      setStyle(t, 'font-size', st.fs ? st.fs + 'px' : '');
+      setStyle(t, 'font-weight', st.bold ? '700' : '');
+    });
+  });
+  EDGES.forEach(e => {
+    const st = meta.edges[e.key] || {};
+    const color = st.color || G.edgeColor || '';
+    const w = st.width || G.edgeWidth;
+    const dash = st.dash || G.edgeDash;
+    setStyle(e.path, 'stroke', color);
+    setStyle(e.path, 'stroke-width', w ? w + 'px' : '');
+    setStyle(e.path, 'stroke-dasharray', dash ? DASH[dash] : '');
+    edgeMarker(e, color);
+    if (e.label) e.label.querySelectorAll('text,tspan').forEach(t => {
+      setStyle(t, 'fill', st.lc); setStyle(t, 'font-size', st.lfs ? st.lfs + 'px' : '');
+    });
+  });
+}
+function markSel(){
+  Object.values(NODES).forEach(n => n.g.classList.toggle('sel', !!sel && sel.type === 'node' && sel.id === n.id));
+  EDGES.forEach(e => e.hit.classList.toggle('sel', !!sel && sel.type === 'edge' && sel.id === e.key));
+}
+function select(s){ sel = s; markSel(); renderPanel(); }
+
+/* ---------- 修改入口 ---------- */
+function mutate(tag, fn, kind){
+  checkpoint(tag); fn(); persist();
+  if (kind === 'render') render();
+  else if (kind === 'route') { routeAll(); applyStyles(); }
+  else applyStyles();
+}
+
+/* ---------- 右侧面板 ---------- */
+function ctlColor(get, set, fallback){
+  const inp = mk('input', { type: 'color', value: get() || rgbToHex(fallback ? fallback() : '') });
+  inp.oninput = () => set(inp.value);
+  const x = mk('button', { className: 'x', title: '恢复默认', textContent: '×' });
+  x.onclick = () => { set(''); inp.value = rgbToHex(fallback ? fallback() : ''); };
+  return [inp, x];
+}
+function ctlRange(get, set, min, max, step, def){
+  const cur = get();
+  const r = mk('input', { type: 'range', min, max, step, value: cur !== '' && cur != null ? cur : def });
+  const v = mk('span', { className: 'val', textContent: cur !== '' && cur != null ? cur : '默认' });
+  r.oninput = () => { set(parseFloat(r.value)); v.textContent = r.value; };
+  const x = mk('button', { className: 'x', title: '恢复默认', textContent: '×' });
+  x.onclick = () => { set(''); r.value = def; v.textContent = '默认'; };
+  return [r, v, x];
+}
+function ctlSelect(opts, get, set){
+  const s = mk('select');
+  opts.forEach(([t, val]) => s.append(mk('option', { value: val, textContent: t })));
+  s.value = get() ?? '';
+  s.onchange = () => set(s.value);
+  return [s];
+}
+function row(label, kids){ return mk('div', { className: 'row' }, mk('label', { textContent: label }), mk('div', { className: 'ctl' }, ...kids)); }
+
+function renderPanel(){
+  side.replaceChildren();
+  const G = meta.g;
+  const gset = (key, kind) => v => mutate('g.' + key, () => { G[key] = v; }, kind);
+
+  side.append(mk('h2', { textContent: '全局' }));
+  side.append(row('主题', ctlSelect([['默认', 'default'], ['中性', 'neutral'], ['深色', 'dark'], ['森林', 'forest'], ['基础', 'base']], () => G.theme, v => { gset('theme', 'render')(v); applyCanvasBg(); })));
+  const fontInp = mk('input', { type: 'text', value: G.fontFamily, placeholder: '字体，如 Arial', list: 'fontlist' });
+  const dl = mk('datalist', { id: 'fontlist' }); FONTS.forEach(([n, v]) => dl.append(mk('option', { value: v, label: n })));
+  fontInp.onchange = () => gset('fontFamily', 'render')(fontInp.value.trim());
+  side.append(row('字体', [fontInp, dl]));
+  side.append(row('字号', ctlRange(() => G.fontSize, v => gset('fontSize', 'render')(v === '' ? 16 : v), 8, 40, 1, 16)));
+  side.append(row('节点边框', ctlRange(() => G.nodeStroke, gset('nodeStroke'), 0, 8, 0.5, 1)));
+  side.append(mk('h2', { textContent: '连线' }));
+  side.append(row('粗细', ctlRange(() => G.edgeWidth, gset('edgeWidth'), 0.5, 10, 0.5, 2)));
+  side.append(row('线型', ctlSelect([['默认', ''], ['实线', 'solid'], ['虚线', 'dash'], ['点线', 'dot']], () => G.edgeDash, gset('edgeDash'))));
+  side.append(row('颜色', ctlColor(() => G.edgeColor, gset('edgeColor'), () => isDark() ? '#cccccc' : '#333333')));
+  side.append(row('走线', ctlSelect([['自动（保持原布局）', 'auto'], ['直线', 'straight'], ['曲线', 'curve'], ['折线', 'ortho']], () => G.curve, gset('curve', 'route'))));
+  side.append(row('背景', ctlColor(() => G.bg, v => { gset('bg')(v); applyCanvasBg(); }, canvasBg)));
+
+  if (sel && sel.type === 'node' && NODES[sel.id]) {
+    const n = NODES[sel.id], id = sel.id;
+    const st = () => (meta.nodes[id] = meta.nodes[id] || {});
+    const set = key => v => mutate('n.' + id + key, () => { v === '' || v === false ? delete st()[key] : (st()[key] = v); });
+    const cs = getComputedStyle(n.shape), tx = n.g.querySelector('text');
+    side.append(mk('h2', { textContent: '选中节点' }), mk('div', { className: 'selname', textContent: id }));
+    side.append(row('填充', ctlColor(() => st().fill, set('fill'), () => cs.fill)));
+    side.append(row('边框色', ctlColor(() => st().stroke, set('stroke'), () => cs.stroke)));
+    side.append(row('边框粗', ctlRange(() => st().sw ?? '', set('sw'), 0, 10, 0.5, 1)));
+    side.append(row('文字色', ctlColor(() => st().color, set('color'), () => tx ? getComputedStyle(tx).fill : '')));
+    side.append(row('字号', ctlRange(() => st().fs ?? '', set('fs'), 8, 48, 1, G.fontSize || 16)));
+    const bold = mk('input', { type: 'checkbox', checked: !!st().bold });
+    bold.onchange = () => set('bold')(bold.checked);
+    side.append(row('加粗', [bold]));
+    side.append(mk('p', { className: 'note', textContent: '提示：单独调大字号不会自动撑大节点框，整体字号请用“全局”。' }));
+    side.append(mk('button', { textContent: '重置此节点', onclick: () => { mutate('n.reset', () => { delete meta.nodes[id]; delete meta.pos[id]; }, 'route'); moveNode(n); routeAll(); renderPanel(); } }));
+  } else if (sel && sel.type === 'edge') {
+    const e = EDGES.find(x => x.key === sel.id);
+    if (e) {
+      const id = e.key;
+      const st = () => (meta.edges[id] = meta.edges[id] || {});
+      const set = key => v => mutate('e.' + id + key, () => { v === '' ? delete st()[key] : (st()[key] = v); });
+      side.append(mk('h2', { textContent: '选中连线' }), mk('div', { className: 'selname', textContent: e.src + ' → ' + e.tgt }));
+      side.append(row('颜色', ctlColor(() => st().color, set('color'), () => getComputedStyle(e.path).stroke)));
+      side.append(row('粗细', ctlRange(() => st().width ?? '', set('width'), 0.5, 10, 0.5, G.edgeWidth || 2)));
+      side.append(row('线型', ctlSelect([['默认', ''], ['实线', 'solid'], ['虚线', 'dash'], ['点线', 'dot']], () => st().dash || '', set('dash'))));
+      if (e.label) {
+        const tx = e.label.querySelector('text');
+        side.append(row('文字色', ctlColor(() => st().lc, set('lc'), () => tx ? getComputedStyle(tx).fill : '')));
+        side.append(row('文字号', ctlRange(() => st().lfs ?? '', set('lfs'), 8, 40, 1, G.fontSize || 16)));
+      }
+      side.append(mk('button', { textContent: '重置此连线', onclick: () => { mutate('e.reset', () => { delete meta.edges[id]; }); renderPanel(); } }));
+    }
+  } else {
+    side.append(mk('h2', { textContent: '选中项' }), mk('p', { className: 'note', textContent: isFlow ? '点击节点或连线，在这里调整颜色、粗细、字号等。' : '当前图类型不支持逐项选择。' }));
+  }
+}
+
+/* ---------- 画布：平移 / 缩放 / 交互 ---------- */
+function applyView(){
+  stage.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`;
+  $('#zVal').textContent = Math.round(view.k * 100) + '%';
+}
+function zoomAt(f, cx, cy){
+  const k = Math.min(8, Math.max(0.1, view.k * f)), r = k / view.k;
+  view.x = cx - (cx - view.x) * r; view.y = cy - (cy - view.y) * r; view.k = k; applyView();
+}
+function fit(){
+  if (!svg) return;
+  const bb = svg.getBBox(), vb = svg.viewBox.baseVal, W = canvas.clientWidth, H = canvas.clientHeight, pad = 30;
+  if (!bb.width || !bb.height) return;
+  const k = Math.min((W - 2 * pad) / bb.width, (H - 2 * pad) / bb.height, 1.5);
+  view.k = k;
+  view.x = (W - bb.width * k) / 2 - (bb.x - vb.x) * k;
+  view.y = (H - bb.height * k) / 2 - (bb.y - vb.y) * k;
+  applyView();
+}
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+
+let drag = null;
+canvas.addEventListener('pointerdown', e => {
+  if (e.target.closest('#zoombar')) return;
+  const nodeG = isFlow && e.target.closest('g.node.drag');
+  const hit = isFlow && e.target.closest('.hit');
+  if (nodeG) {
+    const n = Object.values(NODES).find(x => x.g === nodeG);
+    if (!n) return;
+    const o = off(n.id);
+    drag = { type: 'node', n, sx: e.clientX, sy: e.clientY, ox: o[0], oy: o[1], moved: false };
+    select({ type: 'node', id: n.id });
+  } else if (hit) {
+    select({ type: 'edge', id: EDGES[+hit.dataset.edge].key });
+    return;
+  } else {
+    drag = { type: 'pan', sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y, moved: false };
+    canvas.classList.add('panning');
+  }
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+  if (!drag.moved && Math.hypot(dx, dy) < 3) return;
+  if (drag.type === 'pan') { drag.moved = true; view.x = drag.ox + dx; view.y = drag.oy + dy; applyView(); return; }
+  if (!drag.moved) { checkpoint('drag' + Math.random()); drag.moved = true; }
+  meta.pos[drag.n.id] = [f2(drag.ox + dx / view.k), f2(drag.oy + dy / view.k)];
+  moveNode(drag.n);
+  EDGES.forEach(ed => { if (ed.src === drag.n.id || ed.tgt === drag.n.id) routeOne(ed); });
+});
+function endDrag(e){
+  if (!drag) return;
+  const d = drag; drag = null; canvas.classList.remove('panning');
+  if (d.type === 'pan' && !d.moved && !(e.target.closest && e.target.closest('g.node,.hit'))) select(null);
+  if (d.type === 'node' && d.moved) persist();
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+$('#zIn').onclick = () => zoomAt(1.25, canvas.clientWidth / 2, canvas.clientHeight / 2);
+$('#zOut').onclick = () => zoomAt(0.8, canvas.clientWidth / 2, canvas.clientHeight / 2);
+$('#zFit').onclick = fit;
+$('#z100').onclick = () => zoomAt(1 / view.k, canvas.clientWidth / 2, canvas.clientHeight / 2);
+
+/* ---------- 文件：打开 / 保存 / 导出 ---------- */
+function fullText(){
+  const body = code.value.replace(/\s+$/, '');
+  const hasMeta = Object.keys(meta.pos).length || Object.keys(meta.nodes).length || Object.keys(meta.edges).length
+    || JSON.stringify(meta.g) !== JSON.stringify(defaultMeta().g);
+  return body + '\n' + (hasMeta ? '\n%% mmd-editor:' + JSON.stringify(meta) + '\n' : '');
+}
+function loadText(text, name){
+  let m = META_RE.exec(text), nm = defaultMeta();
+  if (m) { try { nm = Object.assign(defaultMeta(), JSON.parse(m[1])); nm.g = Object.assign(defaultMeta().g, nm.g); } catch (e) {} text = text.replace(META_RE, ''); }
+  const fence = /```\s*mermaid\s*\n([\s\S]*?)```/.exec(text);
+  if (fence) text = fence[1];
+  code.value = text.replace(/\s+$/, '') + '\n';
+  meta = nm; sel = null; hist.length = 0; redo.length = 0; updateHistBtns();
+  if (name) { fileName = name; $('#fname').textContent = name; }
+  applyCanvasBg(); firstFit = true; persist(); render();
+}
+function download(blob, name){
+  const a = mk('a', { href: URL.createObjectURL(blob), download: name });
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const baseName = () => fileName.replace(/\.[^.]+$/, '') || 'diagram';
+$('#btnOpen').onclick = () => $('#fileInput').click();
+$('#fileInput').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  loadText(await f.text(), f.name); e.target.value = '';
+};
+$('#btnSave').onclick = () => {
+  const name = /\.(mmd|mermaid)$/i.test(fileName) ? fileName : baseName() + '.mmd';
+  download(new Blob([fullText()], { type: 'text/plain;charset=utf-8' }), name);
+};
+function exportSvgString(){
+  const c = svg.cloneNode(true), bb = svg.getBBox(), pad = 24;
+  c.querySelectorAll('.hit').forEach(h => h.remove());
+  c.querySelectorAll('.sel,.drag').forEach(x => x.classList.remove('sel', 'drag'));
+  c.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  c.setAttribute('viewBox', `${bb.x - pad} ${bb.y - pad} ${bb.width + 2 * pad} ${bb.height + 2 * pad}`);
+  c.setAttribute('width', bb.width + 2 * pad); c.setAttribute('height', bb.height + 2 * pad);
+  c.style.overflow = 'hidden';
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('x', bb.x - pad); bg.setAttribute('y', bb.y - pad);
+  bg.setAttribute('width', bb.width + 2 * pad); bg.setAttribute('height', bb.height + 2 * pad);
+  bg.setAttribute('fill', canvasBg());
+  c.insertBefore(bg, c.firstChild);
+  return { str: new XMLSerializer().serializeToString(c), w: bb.width + 2 * pad, h: bb.height + 2 * pad };
+}
+$('#btnSvg').onclick = () => { if (!svg) return; download(new Blob([exportSvgString().str], { type: 'image/svg+xml' }), baseName() + '.svg'); };
+$('#btnPng').onclick = () => {
+  if (!svg) return;
+  const { str, w, h } = exportSvgString(), sc = 2;
+  const img = new Image();
+  img.onload = () => {
+    const cv = mk('canvas', { width: Math.ceil(w * sc), height: Math.ceil(h * sc) });
+    const ctx = cv.getContext('2d'); ctx.scale(sc, sc); ctx.drawImage(img, 0, 0, w, h);
+    cv.toBlob(b => b ? download(b, baseName() + '.png') : alert('PNG 导出失败，请改用 SVG'), 'image/png');
+  };
+  img.onerror = () => alert('PNG 导出失败，请改用 SVG');
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(str);
+};
+
+$('#btnUndo').onclick = undo;
+$('#btnRedo').onclick = redoIt;
+$('#btnReset').onclick = () => { if (Object.keys(meta.pos).length) { checkpoint('reset'); meta.pos = {}; persist(); moveAllNodes(); routeAll(); } };
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && document.activeElement !== code) {
+    e.preventDefault(); e.shiftKey ? redoIt() : undo();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); $('#btnSave').click(); }
+});
+['dragover', 'drop'].forEach(t => document.addEventListener(t, async e => {
+  e.preventDefault();
+  if (t === 'drop' && e.dataTransfer.files[0]) loadText(await e.dataTransfer.files[0].text(), e.dataTransfer.files[0].name);
+}));
+
+/* ---------- 编辑器 ---------- */
+code.addEventListener('input', () => { persist(); scheduleRender(); });
+code.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = code.selectionStart;
+    code.setRangeText('  ', s, code.selectionEnd, 'end');
+    code.dispatchEvent(new Event('input'));
+  }
+});
+$('#split').addEventListener('pointerdown', e => {
+  const narrow = matchMedia('(max-width:900px)').matches;
+  const start = narrow ? e.clientY : e.clientX, w0 = narrow ? $('#editorPane').offsetHeight : $('#editorPane').offsetWidth;
+  const mv = ev => {
+    const v = Math.max(120, w0 + (narrow ? ev.clientY : ev.clientX) - start);
+    narrow ? document.querySelector('main').style.gridTemplateRows = `${v}px 6px minmax(0,1fr) auto`
+           : document.querySelector('main').style.setProperty('--ew', v + 'px');
+  };
+  const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+});
+
+/* ---------- 启动 ---------- */
+(async function init(){
+  try {
+    const saved = JSON.parse(localStorage.getItem('mmd-editor-state') || 'null');
+    if (saved && saved.code) {
+      code.value = saved.code;
+      meta = Object.assign(defaultMeta(), saved.meta || {}); meta.g = Object.assign(defaultMeta().g, meta.g);
+      fileName = saved.fileName || fileName; $('#fname').textContent = fileName;
+    } else code.value = SAMPLE;
+  } catch (e) { code.value = SAMPLE; }
+  applyCanvasBg(); applyView(); updateHistBtns(); renderPanel();
+  try { await loadMermaid(); } catch (e) {
+    $('#err').textContent = e.message; $('#err').style.display = 'block'; $('#status').textContent = '库加载失败'; return;
+  }
+  render();
+  addEventListener('resize', () => {});
+})();
+window.__mmd = { get meta(){ return meta; }, get NODES(){ return NODES; }, get EDGES(){ return EDGES; }, render };
+</script>
+</body>
+</html>
