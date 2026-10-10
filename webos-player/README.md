@@ -38,16 +38,24 @@ npm test
 
 ### 安装到电视
 
-1. 电视上安装 **Developer Mode** 应用并开启(LG Developer 官网有说明),记下电视 IP 和 passphrase。
-2. 电脑安装 CLI:`npm i -g @webos-tools/cli`
-3. 添加设备并打包安装:
+电视端的安装包就是 `.ipk` 文件。三种拿到它的方式:
+
+- **本地打包**:`npm i -g @webos-tools/cli` 后 `npm run package`,生成 `dist/com.sunyu.lanplayer_0.1.0_all.ipk`。
+- **GitHub Actions**:推送后在仓库 Actions 页的 `lan-player-ipk` 产物里下载。
+- 直接用别人给你的 `.ipk`。
+
+安装(官方方式,需要 Developer Mode):
+
+1. 电视上安装 **Developer Mode** 应用并开启,记下电视 IP 和 passphrase。注意:Developer Mode 会话会过期,需要定期在该应用里延期,否则已装的开发者应用会被清掉。
+2. 添加设备并安装:
    ```bash
    ares-setup-device --add tv -i "host=<电视IP>" -i "port=9922" -i "username=prisoner"
    ares-novacom --device tv --getkey        # 输入 passphrase
-   npm run package                          # → dist/com.sunyu.lanplayer_0.1.0_all.ipk
    npm run install-tv
    npm run launch
    ```
+
+想要"装一次长期用、不用续期",社区有 Homebrew Channel(webosbrew),但需要先获取电视 root 权限,存在风险并可能影响保修,是否使用请自行判断,本项目不提供 root 方法。上架 LG Content Store 需要注册开发者并通过审核,播放任意流媒体的应用审核较严,不在本项目范围内。
 
 兼容目标:webOS 4.0(2018 款,Chromium 53)及以上。代码刻意避开 `async/await`、`padStart` 等新语法。
 
