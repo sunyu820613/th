@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<title>LAN Player</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<section id="home" class="screen active">
+  <header><h1>LAN Player</h1><span class="hint">OK 打开 · 红键 添加来源 · 黄键 编辑来源</span></header>
+  <h2>我的来源</h2>
+  <div id="src-grid" class="grid"></div>
+  <div id="recent-sec">
+    <h2>继续观看</h2>
+    <div id="recent-row" class="grid"></div>
+  </div>
+</section>
+
+<section id="browse" class="screen">
+  <header><h1 id="b-path"></h1><span id="b-filter" class="hint"></span>
+    <span class="hint">蓝键/黄键 筛选 · 红键 刷新 · 返回 上一级</span></header>
+  <div id="b-status" class="status"></div>
+  <div id="b-list" class="list" data-list></div>
+</section>
+
+<section id="player" class="screen">
+  <video id="video" playsinline></video>
+  <div id="spinner"><i></i></div>
+  <div id="perr"></div>
+  <div id="osd">
+    <div class="top"><div id="osd-title"></div><div id="osd-sub"></div><div id="osd-live">● LIVE</div></div>
+    <div class="bottom">
+      <div class="progress"><div id="bar"><div id="bar-fill"></div></div><div id="osd-time"></div></div>
+      <div id="toolbar">
+        <button class="focusable" data-act="prev">上一个</button>
+        <button class="focusable" data-act="rew">后退10秒</button>
+        <button class="focusable" data-act="play">暂停</button>
+        <button class="focusable" data-act="fwd">快进10秒</button>
+        <button class="focusable" data-act="next">下一个</button>
+        <button class="focusable" data-act="sub">字幕</button>
+        <button class="focusable" data-act="audio">音轨</button>
+        <button class="focusable" data-act="speed">速度</button>
+        <button class="focusable" data-act="ratio">比例</button>
+        <button class="focusable" data-act="list">列表</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="layers"></div>
+<div id="toast"></div>
+
+<script src="lib/hls.min.js"></script>
+<script src="lib/mpegts.js"></script>
+<script src="js/util.js"></script>
+<script src="js/m3u.js"></script>
+<script src="js/subtitle.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/net.js"></script>
+<script src="js/sources/http.js"></script>
+<script src="js/sources/webdav.js"></script>
+<script src="js/sources/dlna.js"></script>
+<script src="js/sources/playlist.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/player.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

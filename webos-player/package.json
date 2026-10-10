@@ -1,0 +1,15 @@
+{
+  "name": "webos-lan-player",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LG webOS TV video player for LAN media (HTTP/WebDAV/DLNA) and live streams (M3U/HLS/FLV/TS)",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "gateway": "node tools/gateway.js",
+    "serve": "node tools/serve.js",
+    "package": "ares-package app --outdir dist",
+    "install-tv": "ares-install --device tv dist/com.sunyu.lanplayer_0.1.0_all.ipk",
+    "launch": "ares-launch --device tv com.sunyu.lanplayer"
+  }
+}

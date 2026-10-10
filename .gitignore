@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### webos-player ###
+webos-player/dist/
+webos-player/node_modules/

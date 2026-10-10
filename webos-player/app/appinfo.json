@@ -1,0 +1,13 @@
+{
+  "id": "com.sunyu.lanplayer",
+  "version": "0.1.0",
+  "vendor": "sunyu",
+  "type": "web",
+  "main": "index.html",
+  "title": "LAN Player",
+  "icon": "icons/icon80.png",
+  "largeIcon": "icons/icon130.png",
+  "bgImage": "icons/bg.png",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true
+}
