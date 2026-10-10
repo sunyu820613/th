@@ -83,7 +83,8 @@ var Player = (function () {
     } else if (e === 'flv') {
       order = ['flv'];
     } else if (e === 'ts') {
-      order = item.live ? ['mpegts', 'native'] : ['native', 'mpegts'];
+      // webOS: the system player decodes TS in hardware incl. 4K HEVC, which mpegts.js (MSE, H.264-centric) cannot.
+      order = (item.live && !IS_WEBOS) ? ['mpegts', 'native'] : ['native', 'mpegts'];
     } else if (item.live) {
       order = ['native', 'hls', 'mpegts']; // unknown live URL: could be HLS or raw TS
     } else {
@@ -126,7 +127,8 @@ var Player = (function () {
         video.src = src;
         video.play();
       } else if (eng === 'hls') {
-        state.hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30 });
+        // Cap buffered bytes, not just seconds: a 4K stream at 50+ Mbps would otherwise exhaust a TV's heap.
+        state.hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30, maxBufferSize: 40 * 1000 * 1000 });
         state.hls.on(Hls.Events.ERROR, function (ev, data) {
           if (data.fatal) {
             if (data.type === Hls.ErrorTypes.NETWORK_ERROR && state.hlsRetry < 2) { state.hlsRetry++; state.hls.startLoad(); return; }

@@ -71,7 +71,7 @@
 |---|---|---|
 | `.m3u8` | webOS: native → hls.js;其他: hls.js → native(设置可改) | LG 原生 HLS 走硬件管线、省内存;hls.js 容错更好 |
 | `.flv` | mpegts.js | 浏览器原生不支持 FLV |
-| `.ts` 直播 | mpegts.js → native | 低延迟追帧 |
+| `.ts` | webOS: native → mpegts.js;桌面直播: mpegts.js → native | webOS 系统播放器可硬解 4K HEVC TS;桌面端 mpegts.js 低延迟追帧(详见 §7) |
 | 未知扩展名的直播 | native → hls.js → mpegts.js | 可能是 HLS 也可能是裸 TS |
 | 其他(mp4/mkv/…) | native | 最大化硬解、可 seek |
 
@@ -87,14 +87,35 @@
 
 **焦点导航**(`nav.js`):以 `.focusable` 为候选,按方向取"主轴距离 + 3×副轴偏移"最小者;长列表(`data-list`)上下键走相邻节点的快路径,避免上千频道时逐个量尺寸。
 
-## 7. 4K 与高码率
+## 7. 目标机型与 4K
 
-- UI 画布是 1080p,**视频层独立**:`<video>` 由电视硬件解码并输出原生分辨率,与 `appinfo.resolution` 无关。代码没有分辨率上限。
-- 是否能播 4K 取决于**机型的硬解码能力**,而不是本应用:4K 机型通常硬解 HEVC 4K60;H.264 常见上限 4K30(或 1080p60);VP9 / AV1 看年份与机型。HDR10 / Dolby Vision 由电视在原生播放时处理。
-- **走原生路径最稳**(mp4/mkv 直链、LG 原生 HLS)。走 MSE 的路径(hls.js、mpegts.js)能否喂 4K 取决于机型的 MSE 实现,且 hls.js 缓冲在内存里,高码率(>50 Mbps)下需控制缓冲:当前 `maxBufferLength=30s`,若实机出现内存问题应改用 `maxBufferSize` 限制字节数。
-- mpegts.js 对 HEVC 的支持有限(1.7.x 以 H.264 为主),**4K HEVC 的 FLV/裸 TS 直播不保证可播**,建议服务端转成 HLS(fMP4/HEVC)走原生。
-- 网络:4K 原盘/高码率 remux 常 50–100+ Mbps,电视需有线或 5GHz 稳定连接;HTTP 服务需支持 Range。
-- 本项目**尚未在 4K 电视上验证**,上述结论来自平台能力而非实测。
+**首要目标机型:LG 2019 款 4K(webOS 4.5,Chromium 53)。** 以下能力来自对该平台的了解,**未在真机实测**,上机后以实测为准。
+
+| 项目 | 预期 | 对设计的影响 |
+|---|---|---|
+| HEVC 4K60 / HDR10 / 杜比视界 | 系统原生播放器硬解支持 | 4K 内容必须走**原生路径** |
+| VP9 | 支持;AV1 不支持 | AV1 片源会失败,无回退可用 |
+| H.264 | 1080p 无压力,4K 帧率上限存疑 | 4K H.264 高帧率若卡顿,建议转 HEVC |
+| 音频 | 杜比(AC3/EAC3/TrueHD 直通)支持;**DTS 解码在 2019 款起被 LG 移除** | 仅含 DTS 音轨的 MKV 可能无声;用「音轨」菜单换成 AC3/AAC 轨。网页应用无法软解音频 |
+| MSE(hls.js / mpegts.js) | 可用,但 4K/HEVC 不可靠、占 JS 堆内存 | 仅作回退,不作 4K 首选 |
+
+**UI 与视频层独立**:界面固定 1080p,视频由电视硬件解码并按原分辨率输出,与 `appinfo.resolution` 无关;代码本身没有分辨率上限。
+
+**据此设定的默认引擎(`IS_WEBOS` 时)**
+
+| 内容 | 顺序 | 原因 |
+|---|---|---|
+| mp4 / mkv / mov 等直链 | native | 硬解、可 seek、支持 HDR/DV |
+| `.m3u8`(HLS) | native → hls.js | LG 原生 HLS 走硬件管线,4K HEVC fMP4 可播;hls.js 仅作回退 |
+| `.ts`(含直播) | native → mpegts.js | **与桌面端相反**:mpegts.js 对 HEVC 支持有限,系统播放器可硬解 4K TS |
+| `.flv` | mpegts.js | 系统不支持 FLV;仅 H.264 可靠,**4K HEVC 的 FLV 不保证**,建议服务端转 HLS |
+| 未知扩展名直播 | native → hls.js → mpegts.js | 可能是 HLS 也可能是裸 TS |
+
+hls.js 额外限制 `maxBufferSize = 40 MB`(除 30 秒外再按字节封顶),避免 50+ Mbps 码流把缓冲撑爆电视内存。
+
+**网络**:4K 高码率片源常 50–100+ Mbps,电视需有线或稳定 5GHz;HTTP 服务需支持 Range。
+
+**上机后优先验证**:① 4K HEVC mp4/mkv 直链是否流畅;② 4K HEVC HLS(fMP4)原生是否可播;③ DTS 片源的实际表现;④ 裸 TS 直播延迟是否可接受(原生比 mpegts.js 延迟高);⑤ hls.js 在 Chromium 53 上能否正常工作。
 
 ## 8. 数据与存储
 
