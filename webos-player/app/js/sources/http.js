@@ -15,7 +15,7 @@ var HttpSource = (function () {
 
   function parseHtml(html, base) {
     var doc = new DOMParser().parseFromString(html, 'text/html');
-    var cur = dirUrl(base), seen = {}, out = [];
+    var cur = Util.resolve(dirUrl(base), ''), seen = {}, out = []; // normalised like `abs` below (host case, :80, %-encoding)
     var links = doc.querySelectorAll('a[href]');
     for (var i = 0; i < links.length; i++) {
       var raw = links[i].getAttribute('href');

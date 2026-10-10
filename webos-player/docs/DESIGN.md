@@ -24,6 +24,7 @@
 | 无 UDP / 无 socket | DLNA 只能手填地址;SMB 需网关 |
 | 跨域限制 | 读目录/播放列表、hls.js、mpegts.js 都走 XHR,需服务器允许 CORS,否则走自带网关 |
 | 只有遥控器 | 自写空间焦点导航;所有交互必须可用方向键 + OK + 返回 + 彩键完成 |
+| CSS 只能用 Chromium 53 的特性 | 不用 `inset`、flex `gap`,改用 top/right/bottom/left 与兄弟 margin |
 | 1920×1080 画布 | UI 固定按 1080p 设计(`appinfo.resolution`),视频层不受此限制,见 §7 |
 
 ## 3. 总体架构
@@ -123,7 +124,7 @@ hls.js 额外限制 `maxBufferSize = 40 MB`(除 30 秒外再按字节封顶),避
 
 ## 9. 网络与 CORS 网关
 
-`Net.request` 基于 XHR,可选经网关改写 URL:`http://h:p/x → <gw>/http/h:p/x`。目标写在**路径**而非查询串,因此 HLS 清单与 WebDAV href 中的相对地址仍能解析到网关。网关转发 Range / PROPFIND / SOAP 头,去掉上游 CORS 头后统一加自己的,并把重定向改写回网关内。原生 `<video src>` 不需要 CORS,直连。
+`Net.request` 基于 XHR,可选经网关改写 URL:`http://h:p/x → <gw>/http/h:p/x`。目标写在**路径**而非查询串,因此 HLS 清单与 WebDAV href 中的相对地址仍能解析到网关。网关转发 Range / PROPFIND / SOAP 头,去掉上游 CORS 头后统一加自己的,并把重定向改写回网关内。因为它是转发代理,默认拒绝网页 Origin 与回环/链路本地目标、限制方法(见 `tools/gateway.js` 顶部说明)。带账号密码时,经网关的 hls.js / mpegts.js 请求改用 `Authorization` 头而不是 URL 内嵌凭据。原生 `<video src>` 不需要 CORS,直连。
 
 ## 10. 测试策略
 

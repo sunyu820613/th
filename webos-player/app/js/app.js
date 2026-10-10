@@ -12,7 +12,7 @@ var App = (function () {
   var $ = UI.$, el = UI.el;
   var screen = 'home';
   var stack = [];       // browse frames: {source, loc, title, entries, filter, focus}
-  var frameCache = null;
+  var loadSeq = 0;      // bumped on every navigation so late XHR results can be discarded
 
   function show(name) {
     screen = name;
@@ -28,9 +28,11 @@ var App = (function () {
     var inInput = t && t.tagName === 'INPUT';
 
     if (inInput) {
-      if (a === 'left' || a === 'right' || (e.keyCode === 8)) return;      // text editing
-      if (a === 'ok') return;                                              // open/close the keyboard
-      if (e.keyCode === 27 || a === 'back') { t.blur(); }
+      // Typing (letters, space, digits, left/right, backspace, OK to open the keyboard) belongs to the field.
+      // Only vertical navigation and Back leave it.
+      if (a === 'up' || a === 'down') { /* fall through to navigation */ }
+      else if (e.keyCode === 27 || e.keyCode === 461 || e.keyCode === 10009) { t.blur(); }
+      else return;
     }
     if (!a) return;
 
@@ -101,7 +103,13 @@ var App = (function () {
       c.appendChild(el('div', 'sub', Util.fmtTime(r.pos) + ' / ' + Util.fmtTime(r.dur)));
       var bar = el('div', 'mini'); var fill = el('i'); fill.style.width = Math.min(100, r.pos / r.dur * 100) + '%';
       bar.appendChild(fill); c.appendChild(bar);
-      c.onclick = function () { playItems([{ name: r.name, url: r.url, live: false }], 0); };
+      c.onclick = function () {
+        var src = r.sid ? Store.source(r.sid) : null;
+        playItems([{
+          name: r.name, url: r.url, live: false, sid: r.sid, subs: r.subs || [],
+          auth: src && src.user ? { user: src.user, pass: src.pass } : null
+        }], 0);
+      };
       recent.appendChild(c);
     });
   }
@@ -166,8 +174,7 @@ var App = (function () {
     ], '播放').then(function (v) {
       if (!v || !v.url) return;
       var url = normalizeUrl(v.url);
-      var live = ['mp4', 'mkv', 'avi', 'mov'].indexOf(Util.ext(url)) < 0;
-      playItems([{ name: Util.basename(url) || url, url: url, live: live }], 0);
+      playItems([{ name: Util.basename(url) || url, url: url, live: Util.isLiveUrl(url) }], 0);
     });
   }
 
@@ -199,8 +206,10 @@ var App = (function () {
   }
 
   function pushFrame(source, loc, title) {
+    var seq = ++loadSeq;
     var frame = { source: source, loc: loc, title: title, entries: [], filter: '', focus: 0 };
     loadFrame(frame).then(function (ok) {
+      if (seq !== loadSeq || screen !== 'browse') return; // user navigated away meanwhile
       if (ok) {
         if (stack.length) stack[stack.length - 1].focus = focusedIndex();
         stack.push(frame);
@@ -209,6 +218,8 @@ var App = (function () {
         show('home'); // failed on the root: bounce back
         renderHome();
         Nav.focusFirst($('home'));
+      } else {
+        $('b-status').style.display = stack[stack.length - 1].entries.length ? 'none' : '';
       }
     });
   }
@@ -275,7 +286,7 @@ var App = (function () {
     frame.focus = i;
     if (e.isDir) return pushFrame(frame.source, e.loc, e.name);
     if (e.kind === 'playlist') {
-      return pushFrame({ type: 'm3u', name: e.name, url: e.url, user: frame.source.user, pass: frame.source.pass }, '', e.name);
+      return pushFrame({ type: 'm3u', name: e.name, url: e.url, user: frame.source.user, pass: frame.source.pass, sid: frame.source.id || frame.source.sid }, '', e.name);
     }
     // Build a playlist from every playable file in this view, starting at the chosen one.
     var playable = [], start = 0;
@@ -295,7 +306,7 @@ var App = (function () {
       });
     }
     var auth = frame.source.user ? { user: frame.source.user, pass: frame.source.pass } : null;
-    return { name: x.name, url: x.url, live: !!x.live, subs: subs, auth: auth };
+    return { name: x.name, url: x.url, live: !!x.live, subs: subs, auth: auth, sid: frame.source.id || frame.source.sid };
   }
 
   function browseKey(a) {
@@ -317,6 +328,7 @@ var App = (function () {
   }
 
   function browseBack() {
+    loadSeq++; // cancel any in-flight directory load
     if (stack.length > 1) {
       stack.pop();
       renderFrame();

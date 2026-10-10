@@ -119,16 +119,21 @@ var Player = (function () {
     var eng = order[0];
     state.tried.push(eng);
     state.engine = eng;
-    var src = Util.withCreds(item.url, item.auth && item.auth.user, item.auth && item.auth.pass);
+    var auth = item.auth && item.auth.user ? item.auth : null;
+    var src = item.url;
     var viaGw = function (u) { return Net.viaGateway(u); };
+    var authHeader = auth ? Net.basicAuth(auth.user, auth.pass) : null;
 
     try {
       if (eng === 'native') {
-        video.src = src;
+        // <video> cannot send headers, so credentials have to ride in the URL (see README limitations).
+        video.src = auth ? Util.withCreds(src, auth.user, auth.pass) : src;
         video.play();
       } else if (eng === 'hls') {
         // Cap buffered bytes, not just seconds: a 4K stream at 50+ Mbps would otherwise exhaust a TV's heap.
-        state.hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30, maxBufferSize: 40 * 1000 * 1000 });
+        state.hls = new Hls({
+          xhrSetup: authHeader ? function (xhr) { xhr.setRequestHeader('Authorization', authHeader); } : undefined,
+          enableWorker: true, lowLatencyMode: false, maxBufferLength: 30, maxBufferSize: 40 * 1000 * 1000 });
         state.hls.on(Hls.Events.ERROR, function (ev, data) {
           if (data.fatal) {
             if (data.type === Hls.ErrorTypes.NETWORK_ERROR && state.hlsRetry < 2) { state.hlsRetry++; state.hls.startLoad(); return; }
@@ -143,7 +148,7 @@ var Player = (function () {
         var type = (eng === 'flv' || Util.ext(item.url) === 'flv') ? 'flv' : 'mpegts';
         state.mpegts = mpegts.createPlayer(
           { type: type, isLive: !!item.live, url: viaGw(src) },
-          { enableWorker: false, lazyLoadMaxDuration: 60, liveBufferLatencyChasing: !!item.live, liveBufferLatencyMaxLatency: 5 }
+          { headers: authHeader ? { Authorization: authHeader } : undefined, enableWorker: false, lazyLoadMaxDuration: 60, liveBufferLatencyChasing: !!item.live, liveBufferLatencyMaxLatency: 5 }
         );
         state.mpegts.on(mpegts.Events.ERROR, function (t, d) { switchEngine('mpegts: ' + t + ' ' + d); });
         state.mpegts.attachMediaElement(video);
@@ -245,7 +250,7 @@ var Player = (function () {
   }
 
   function hideOsd() {
-    if (UI.top()) return;
+    if (UI.top()) { state.hideTimer = setTimeout(hideOsd, 2000); return; } // dialog open: look again later
     osd.classList.remove('show');
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }

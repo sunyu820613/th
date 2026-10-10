@@ -37,6 +37,13 @@
     return 'other';
   }
 
+  // Heuristic for URLs of unknown nature: files with a known on-demand container are VOD,
+  // everything else (m3u8, ts, flv, extension-less stream URLs) is treated as live.
+  function isLiveUrl(url) {
+    var k = kind(url), e = ext(url);
+    return !((k === 'video' || k === 'audio') && ['m3u8', 'ts', 'flv'].indexOf(e) < 0);
+  }
+
   function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
   function fmtTime(sec) {
@@ -72,6 +79,6 @@
 
   return {
     ext: ext, basename: basename, stripExt: stripExt, kind: kind, fmtTime: fmtTime, fmtSize: fmtSize,
-    resolve: resolve, withCreds: withCreds, naturalSort: naturalSort, uid: uid, safeDecode: safeDecode
+    isLiveUrl: isLiveUrl, resolve: resolve, withCreds: withCreds, naturalSort: naturalSort, uid: uid, safeDecode: safeDecode
   };
 });

@@ -48,5 +48,5 @@ var Net = (function () {
     });
   }
 
-  return { request: request, viaGateway: viaGateway };
+  return { request: request, viaGateway: viaGateway, basicAuth: basic };
 })();

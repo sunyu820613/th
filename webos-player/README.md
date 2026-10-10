@@ -85,7 +85,16 @@ rclone serve webdav //nas/share --addr :8080 --read-only   # 把 SMB/本地目�
 node tools/gateway.js 8787
 ```
 
-网关把 `http://host:port/path` 映射为 `<网关>/http/host:port/path`(目标写在路径里,所以 HLS 清单里的相对地址依然有效),并补上 CORS 头、转发 Range / PROPFIND。**只在可信内网运行**:它会代理任何被请求的 http(s) 地址。
+网关把 `http://host:port/path` 映射为 `<网关>/http/host:port/path`(目标写在路径里,所以 HLS 清单里的相对地址依然有效),并补上 CORS 头、转发 Range / PROPFIND。
+
+它是个转发代理,所以默认做了限制:
+
+- 拒绝带 `http(s)://` Origin 的请求(即网页里的脚本;电视应用是 `file://`,不受影响)。确需放行某个页面:`--allow-origin=http://host:port`。
+- 拒绝代理 `localhost` / `127.*` / `169.254.*`(防止被用来探测网关本机)。调试时加 `--allow-loopback`。
+- 只转发 GET / HEAD / POST / OPTIONS / PROPFIND。
+- 仍然会代理内网其他主机,**只在可信内网运行**。
+
+带账号密码的来源在走网关时,账号密码以 `Authorization` 头发给 hls.js / mpegts.js,不会拼进 URL。
 
 ## 已知限制
 
@@ -97,8 +106,8 @@ node tools/gateway.js 8787
 
 ## 测试情况
 
-- `npm test`:M3U 解析、SRT/ASS→VTT、编码识别等 8 项单元测试。
-- 在桌面 Chromium 里做过端到端冒烟测试(HTTP 目录 → 播放 → 字幕 → 跳转 → 续播 → WebDAV → M3U 分组 → hls.js 播放 → 直播换台 → 频道抽屉 → 表单),全部通过且无控制台错误。
+- `npm test`:12 项单元测试(M3U 解析、SRT/ASS→VTT、编码识别、直播判断、网关的安全规则与转发)。
+- 在桌面 Chromium 里做过端到端冒烟测试(HTTP 目录 → 播放 → 字幕 → 跳转 → 续播 → WebDAV → M3U 分组 → hls.js 播放 → 直播换台 → 频道抽屉 → 表单),全部通过且无控制台错误;另有一组针对代码审查发现的回归测试(输入框打字、返回键竞态、OSD、续播等)。
 - **尚未在真实电视上验证**:硬件解码、遥控器真实键码(代码已覆盖 LG 标准键码 461/415/19/413/417/412/403–406)、老机型的性能,需要你装机后确认。
 
 ## 设计文档

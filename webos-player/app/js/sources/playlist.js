@@ -15,10 +15,9 @@ var PlaylistSource = (function () {
 
   function toEntry(it) {
     var kind = Util.kind(it.url);
-    var vod = kind === 'video' && ['m3u8', 'ts', 'flv'].indexOf(Util.ext(it.url)) < 0; // mp4/mkv/... are not live
     return {
       name: it.name, url: it.url, isDir: false, kind: kind === 'other' || kind === 'playlist' ? 'video' : kind,
-      live: !vod, group: it.group, logo: it.logo
+      live: Util.isLiveUrl(it.url), group: it.group, logo: it.logo
     };
   }
 

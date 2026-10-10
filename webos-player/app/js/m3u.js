@@ -3,6 +3,17 @@
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./util.js'));
   else root.M3U = factory(root.Util);
 })(this, function (Util) {
+  // Index of the first comma that is not inside a double-quoted attribute value, or -1.
+  function nameComma(s) {
+    var q = false;
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i);
+      if (ch === '"') q = !q;
+      else if (ch === ',' && !q) return i;
+    }
+    return -1;
+  }
+
   function attrs(s) {
     var out = {}, re = /([\w-]+)="([^"]*)"/g, m;
     while ((m = re.exec(s))) out[m[1].toLowerCase()] = m[2];
@@ -22,7 +33,7 @@
       if (!line) continue;
 
       if (line.indexOf('#EXTINF') === 0) {
-        var comma = line.indexOf(',');
+        var comma = nameComma(line);
         var meta = attrs(line);
         pending = {
           name: comma >= 0 ? line.slice(comma + 1).trim() : '',

@@ -61,3 +61,14 @@ test('Subtitle.decode falls back to GB18030', () => {
   assert.strictEqual(Subtitle.decode(gbk.buffer), '你好');
   assert.strictEqual(Subtitle.decode(new TextEncoder().encode('你好').buffer), '你好');
 });
+
+test('M3U.parse: comma inside a quoted attribute is not the name delimiter', () => {
+  const r = M3U.parse('#EXTM3U\n#EXTINF:-1 tvg-name="CCTV-1, HD" group-title="News, Sports",CCTV-1\nhttp://h/1\n');
+  assert.strictEqual(r.items[0].name, 'CCTV-1');
+  assert.strictEqual(r.items[0].group, 'News, Sports');
+});
+
+test('Util.isLiveUrl', () => {
+  for (const u of ['http://h/a.mp4', 'http://h/a.webm', 'http://h/a.mkv', 'http://h/a.mp3', 'http://h/a.rmvb']) assert.strictEqual(Util.isLiveUrl(u), false, u);
+  for (const u of ['http://h/a.m3u8', 'http://h/a.ts', 'http://h/a.flv', 'http://h/stream?id=1', 'http://h:8000/udp/239.1.1.1:5000']) assert.strictEqual(Util.isLiveUrl(u), true, u);
+});

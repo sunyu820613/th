@@ -47,7 +47,7 @@ var Store = (function () {
     if (!item || !item.url || item.live) return;
     var h = history();
     var done = dur > 0 && dur - pos < Math.min(20, dur * 0.05); // watched to (almost) the end
-    h[item.url] = { url: item.url, name: item.name, pos: done ? 0 : pos, dur: dur, t: Date.now() };
+    h[item.url] = { url: item.url, name: item.name, pos: done ? 0 : pos, dur: dur, t: Date.now(), sid: item.sid, subs: item.subs };
     var keys = Object.keys(h);
     if (keys.length > MAX_HISTORY) {
       keys.sort(function (a, b) { return h[a].t - h[b].t; });
@@ -69,11 +69,17 @@ var Store = (function () {
       .sort(function (a, b) { return b.t - a.t; }).slice(0, n);
   }
 
+  function source(id) {
+    var l = sources();
+    for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i];
+    return null;
+  }
+
   function clearHistory() { set('history', {}); }
 
   return {
     settings: settings, saveSettings: saveSettings,
-    sources: sources, saveSource: saveSource, removeSource: removeSource,
+    sources: sources, source: source, saveSource: saveSource, removeSource: removeSource,
     saveProgress: saveProgress, getPosition: getPosition, recent: recent, clearHistory: clearHistory
   };
 })();
